@@ -43,7 +43,7 @@ export default function Profile() {
     setFormCollege(college);
   }, [user, branch, semester, usn, phone, college]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newName = formName.trim() || (user?.name ?? 'Student');
     const newInitials = newName
       .split(' ')
@@ -52,7 +52,7 @@ export default function Profile() {
       .slice(0, 2)
       .toUpperCase();
 
-    updateProfile({
+    await updateProfile({
       user: { ...(user ?? { email: '', college: '' }), name: newName },
       avatar: newInitials,
       college: formCollege.trim(),
@@ -66,8 +66,8 @@ export default function Profile() {
     setTimeout(() => setSuccessMsg(''), 2000);
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.replace('/');
   };
 

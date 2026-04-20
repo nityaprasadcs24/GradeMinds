@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 type Category = 'assignment' | 'revision' | 'quiz' | 'lab' | null;
 
@@ -12,47 +13,105 @@ interface Todo {
 
 interface TodoStore {
   todos: Todo[];
-  addTodo: (text: string) => void;
-  toggleTodo: (id: string) => void;
-  deleteTodo: (id: string) => void;
-  cycleCategory: (id: string) => void;
+  isLoading: boolean;
+  fetchTodos: () => Promise<void>;
+  addTodo: (text: string) => Promise<void>;
+  toggleTodo: (id: string) => Promise<void>;
+  deleteTodo: (id: string) => Promise<void>;
+  cycleCategory: (id: string) => Promise<void>;
 }
 
 const CATEGORIES: Category[] = [null, 'assignment', 'revision', 'quiz', 'lab'];
 
-export const useTodoStore = create<TodoStore>((set) => ({
-  todos: [
-    { id: '1', text: 'Complete OS Assignment 3', completed: true, category: 'assignment', createdAt: Date.now() - 3000 },
-    { id: '2', text: 'Review OS lecture slides', completed: false, category: 'revision', createdAt: Date.now() - 2000 },
-    { id: '3', text: 'Prepare for Networks quiz', completed: false, category: 'quiz', createdAt: Date.now() - 1000 },
-  ],
+export const useTodoStore = create<TodoStore>((set, get) => ({
+  todos: [],
+  isLoading: false,
 
-  addTodo: (text) => set((state) => ({
-    todos: [...state.todos, {
-      id: Date.now().toString(),
-      text,
-      completed: false,
-      category: null,
-      createdAt: Date.now(),
-    }],
-  })),
+  fetchTodos: async () => {
+    set({ isLoading: true });
+    const { data, error } = await supabase
+      .from('todos')
+      .select('*')
+      .order('created_at', { ascending: true });
 
-  toggleTodo: (id) => set((state) => ({
-    todos: state.todos.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    ),
-  })),
+    if (error) { set({ isLoading: false }); return; }
 
-  deleteTodo: (id) => set((state) => ({
-    todos: state.todos.filter((t) => t.id !== id),
-  })),
+    const mapped: Todo[] = (data ?? []).map((t: Record<string, unknown>) => ({
+      id: t.id as string,
+      text: t.text as string,
+      completed: t.completed as boolean,
+      category: (t.category ?? null) as Category,
+      createdAt: new Date(t.created_at as string).getTime(),
+    }));
 
-  cycleCategory: (id) => set((state) => ({
-    todos: state.todos.map((t) => {
-      if (t.id !== id) return t;
-      const currentIndex = CATEGORIES.indexOf(t.category);
-      const nextCategory = CATEGORIES[(currentIndex + 1) % CATEGORIES.length];
-      return { ...t, category: nextCategory };
-    }),
-  })),
+    set({ todos: mapped, isLoading: false });
+  },
+
+  addTodo: async (text) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('todos')
+      .insert({ user_id: user.id, text, completed: false, category: null })
+      .select()
+      .single();
+
+    if (error || !data) return;
+
+    set((state) => ({
+      todos: [...state.todos, {
+        id: data.id as string,
+        text: data.text as string,
+        completed: data.completed as boolean,
+        category: (data.category ?? null) as Category,
+        createdAt: new Date(data.created_at as string).getTime(),
+      }],
+    }));
+  },
+
+  toggleTodo: async (id) => {
+    const todo = get().todos.find((t) => t.id === id);
+    if (!todo) return;
+
+    const { error } = await supabase
+      .from('todos')
+      .update({ completed: !todo.completed })
+      .eq('id', id);
+
+    if (error) return;
+
+    set((state) => ({
+      todos: state.todos.map((t) =>
+        t.id === id ? { ...t, completed: !t.completed } : t
+      ),
+    }));
+  },
+
+  deleteTodo: async (id) => {
+    const { error } = await supabase.from('todos').delete().eq('id', id);
+    if (error) return;
+    set((state) => ({ todos: state.todos.filter((t) => t.id !== id) }));
+  },
+
+  cycleCategory: async (id) => {
+    const todo = get().todos.find((t) => t.id === id);
+    if (!todo) return;
+
+    const currentIndex = CATEGORIES.indexOf(todo.category);
+    const nextCategory = CATEGORIES[(currentIndex + 1) % CATEGORIES.length];
+
+    const { error } = await supabase
+      .from('todos')
+      .update({ category: nextCategory })
+      .eq('id', id);
+
+    if (error) return;
+
+    set((state) => ({
+      todos: state.todos.map((t) =>
+        t.id === id ? { ...t, category: nextCategory } : t
+      ),
+    }));
+  },
 }));

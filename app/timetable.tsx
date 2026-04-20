@@ -54,12 +54,23 @@ function getCurrentTimeOffset(): number {
 
 export default function Timetable() {
   const router = useRouter();
-  const { selectedDay, setSelectedDay, getClassesForDay, addClass, editClass, deleteClass } =
-    useTimetableStore();
+  const fetchClasses = useTimetableStore((state) => state.fetchClasses);
+  const setSelectedDay = useTimetableStore((state) => state.setSelectedDay);
+  const addClass = useTimetableStore((state) => state.addClass);
+  const editClass = useTimetableStore((state) => state.editClass);
+  const deleteClass = useTimetableStore((state) => state.deleteClass);
+  const selectedDay = useTimetableStore((state) => state.selectedDay);
+  const allClasses = useTimetableStore((state) => state.classes);
+
+  const classes = allClasses
+    .filter((c) => c.day === selectedDay)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  useEffect(() => { fetchClasses(); }, []);
+
   const [timeOffset, setTimeOffset] = useState(getCurrentTimeOffset());
   const todayDay = getTodayDay();
   const isToday = selectedDay === todayDay;
-  const classes = getClassesForDay(selectedDay);
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -95,24 +106,34 @@ export default function Timetable() {
     setModalVisible(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.subject.trim() || !form.professor.trim() || !form.room.trim() ||
         !form.startTime.trim() || !form.endTime.trim()) {
       setFormError('Please fill in all fields');
       return;
     }
-    if (editingClass) {
-      editClass(editingClass.id, { ...form, day: selectedDay });
-    } else {
-      addClass({ ...form, day: selectedDay });
+    try {
+      if (editingClass) {
+        await editClass(editingClass.id, { ...form, day: selectedDay });
+      } else {
+        await addClass({ ...form, day: selectedDay });
+      }
+      await fetchClasses();
+      setModalVisible(false);
+    } catch (e) {
+      console.error('handleSave error:', e);
     }
-    setModalVisible(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (editingClass) {
-      deleteClass(editingClass.id);
-      setModalVisible(false);
+      try {
+        await deleteClass(editingClass.id);
+        await fetchClasses();
+        setModalVisible(false);
+      } catch (e) {
+        console.error('handleDelete error:', e);
+      }
     }
   };
 

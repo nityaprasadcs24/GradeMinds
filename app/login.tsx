@@ -14,7 +14,7 @@ import { useAuthStore } from '../store/useAuthStore';
 
 export default function Login() {
   const router = useRouter();
-  const login = useAuthStore((s) => s.login);
+  const login = useAuthStore((s) => s.login) as (email: string, password: string) => Promise<string | null>;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -30,9 +30,12 @@ export default function Login() {
     }
     setError('');
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    login(email.trim(), password);
+    const errorMsg = await login(email.trim(), password);
     setIsLoading(false);
+    if (errorMsg) {
+      setError(errorMsg);
+      return;
+    }
     router.replace('/(tabs)/');
   };
 
@@ -123,7 +126,7 @@ export default function Login() {
         {/* Sign up */}
         <View style={styles.signupRow}>
           <Text style={styles.signupPrompt}>Don't have an account? </Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/signup')}>
             <Text style={styles.signupLink}>Sign up</Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 export interface Subject {
   id: string;
@@ -12,10 +13,11 @@ export interface Subject {
 
 interface SubjectsStore {
   subjects: Subject[];
-  currentSemester: number;
-  addSubject: (subject: Omit<Subject, 'id' | 'grade'>) => void;
-  editSubject: (id: string, updates: Partial<Subject>) => void;
-  deleteSubject: (id: string) => void;
+  isLoading: boolean;
+  fetchSubjects: () => Promise<void>;
+  addSubject: (subject: Omit<Subject, 'id' | 'grade'>) => Promise<void>;
+  editSubject: (id: string, updates: Partial<Subject>) => Promise<void>;
+  deleteSubject: (id: string) => Promise<void>;
   calculateGrade: (marks: number) => string;
   calculateGPA: (subjects: Subject[]) => number;
   getOverallCGPA: () => number;
@@ -52,54 +54,91 @@ export const calculateGPA = (subjects: Subject[]): number => {
   return totalCredits === 0 ? 0 : Math.round((weightedPoints / totalCredits) * 100) / 100;
 };
 
-const INITIAL_SUBJECTS: Subject[] = [
-  { id: '1', name: 'Data Structures', credits: 4, semester: 4, marks: 88, isCurrentSemester: true },
-  { id: '2', name: 'Operating Systems', credits: 4, semester: 4, marks: 92, isCurrentSemester: true },
-  { id: '3', name: 'Mathematics III', credits: 4, semester: 4, marks: 74, isCurrentSemester: true },
-  { id: '4', name: 'Computer Networks', credits: 3, semester: 4, marks: 65, isCurrentSemester: true },
-  { id: '5', name: 'DBMS', credits: 4, semester: 4, marks: 80, isCurrentSemester: true },
-  { id: '6', name: 'Constitution of India', credits: 1, semester: 4, marks: 85, isCurrentSemester: true },
-  { id: '7', name: 'Data Structures Lab', credits: 1, semester: 3, marks: 95, isCurrentSemester: false },
-  { id: '8', name: 'Discrete Mathematics', credits: 4, semester: 3, marks: 78, isCurrentSemester: false },
-  { id: '9', name: 'Computer Organization', credits: 4, semester: 3, marks: 82, isCurrentSemester: false },
-  { id: '10', name: 'OOP with Java', credits: 4, semester: 3, marks: 88, isCurrentSemester: false },
-];
+function mapRow(s: Record<string, unknown>): Subject {
+  const marks = s.marks !== null && s.marks !== undefined ? (s.marks as number) : undefined;
+  return {
+    id: s.id as string,
+    name: s.name as string,
+    credits: s.credits as number,
+    semester: s.semester as number,
+    marks,
+    grade: marks !== undefined ? calculateGrade(marks) : undefined,
+    isCurrentSemester: s.is_current as boolean,
+  };
+}
 
 export const useSubjectsStore = create<SubjectsStore>((set, get) => ({
-  subjects: INITIAL_SUBJECTS,
-  currentSemester: 4,
+  subjects: [],
+  isLoading: false,
 
-  addSubject: (subject) => set((state) => ({
-    subjects: [
-      ...state.subjects,
-      {
-        ...subject,
-        id: Date.now().toString(),
-        grade: subject.marks !== undefined ? calculateGrade(subject.marks) : undefined,
-      },
-    ],
-  })),
+  fetchSubjects: async () => {
+    set({ isLoading: true });
+    const { data, error } = await supabase
+      .from('subjects')
+      .select('*')
+      .order('created_at', { ascending: true });
 
-  editSubject: (id, updates) => set((state) => ({
-    subjects: state.subjects.map((s) => {
-      if (s.id !== id) return s;
-      const updated = { ...s, ...updates };
-      if (updates.marks !== undefined) updated.grade = calculateGrade(updates.marks);
-      return updated;
-    }),
-  })),
+    if (error) {
+      set({ isLoading: false });
+      return;
+    }
 
-  deleteSubject: (id) => set((state) => ({
-    subjects: state.subjects.filter((s) => s.id !== id),
-  })),
+    set({ subjects: (data ?? []).map(mapRow), isLoading: false });
+  },
+
+  addSubject: async (subject) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('subjects')
+      .insert({
+        user_id: user.id,
+        name: subject.name,
+        credits: subject.credits,
+        semester: subject.semester,
+        marks: subject.marks ?? null,
+        is_current: subject.isCurrentSemester,
+      })
+      .select()
+      .single();
+
+    if (error || !data) return;
+
+    set((state) => ({ subjects: [...state.subjects, mapRow(data)] }));
+  },
+
+  editSubject: async (id, updates) => {
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.credits !== undefined) dbUpdates.credits = updates.credits;
+    if (updates.semester !== undefined) dbUpdates.semester = updates.semester;
+    if (updates.marks !== undefined) dbUpdates.marks = updates.marks;
+    if (updates.isCurrentSemester !== undefined) dbUpdates.is_current = updates.isCurrentSemester;
+
+    const { error } = await supabase.from('subjects').update(dbUpdates).eq('id', id);
+    if (error) return;
+
+    set((state) => ({
+      subjects: state.subjects.map((s) => {
+        if (s.id !== id) return s;
+        const updated = { ...s, ...updates };
+        if (updates.marks !== undefined) updated.grade = calculateGrade(updates.marks);
+        return updated;
+      }),
+    }));
+  },
+
+  deleteSubject: async (id) => {
+    const { error } = await supabase.from('subjects').delete().eq('id', id);
+    if (error) return;
+    set((state) => ({ subjects: state.subjects.filter((s) => s.id !== id) }));
+  },
 
   calculateGrade,
   calculateGPA,
 
-  getOverallCGPA: () => {
-    const all = get().subjects.filter((s) => s.marks !== undefined);
-    return calculateGPA(all);
-  },
+  getOverallCGPA: () => calculateGPA(get().subjects.filter((s) => s.marks !== undefined)),
 
   getSemesterSubjects: (semester) => get().subjects.filter((s) => s.semester === semester),
 

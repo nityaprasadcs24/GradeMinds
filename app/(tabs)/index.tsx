@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -51,8 +51,10 @@ export default function Home() {
   const [inputText, setInputText] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
-  const { todos, addTodo, toggleTodo, deleteTodo, cycleCategory } = useTodoStore();
+  const { todos, addTodo, toggleTodo, deleteTodo, cycleCategory, fetchTodos } = useTodoStore();
   const { getCurrentClass } = useTimetableStore();
+
+  useEffect(() => { fetchTodos(); }, []);
   const currentClass = getCurrentClass();
   const { getOverallAttendance } = useAttendanceStore();
   const overallAttendance = getOverallAttendance();

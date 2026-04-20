@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -93,7 +94,8 @@ export default function Subjects() {
   const router = useRouter();
   const {
     subjects,
-    currentSemester,
+    isLoading,
+    fetchSubjects,
     addSubject,
     editSubject,
     deleteSubject,
@@ -102,8 +104,20 @@ export default function Subjects() {
     getOverallCGPA,
   } = useSubjectsStore();
 
+  useEffect(() => {
+    fetchSubjects();
+  }, []);
+
   const semesters = getAllSemesters();
-  const [selectedSem, setSelectedSem] = useState(currentSemester);
+  const currentSemester = subjects.find((s) => s.isCurrentSemester)?.semester ?? semesters[0] ?? 0;
+  const [selectedSem, setSelectedSem] = useState(0);
+
+  // Auto-select latest semester once subjects are loaded
+  useEffect(() => {
+    if (selectedSem === 0 && semesters.length > 0) {
+      setSelectedSem(semesters[0]);
+    }
+  }, [semesters]);
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -115,7 +129,7 @@ export default function Subjects() {
 
   const openAdd = () => {
     setEditingSubject(null);
-    setForm({ name: '', credits: '', semester: String(selectedSem), marks: '', isCurrentSemester: selectedSem === currentSemester });
+    setForm({ name: '', credits: '', semester: String(selectedSem), marks: '', isCurrentSemester: true });
     setFormError('');
     setModalVisible(true);
   };
@@ -133,7 +147,7 @@ export default function Subjects() {
     setModalVisible(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim() || !form.credits.trim()) {
       setFormError('Subject name and credits are required');
       return;
@@ -148,7 +162,7 @@ export default function Subjects() {
     }
 
     if (editingSubject) {
-      editSubject(editingSubject.id, {
+      await editSubject(editingSubject.id, {
         name: form.name.trim(),
         credits,
         semester,
@@ -156,7 +170,7 @@ export default function Subjects() {
         isCurrentSemester: form.isCurrentSemester,
       });
     } else {
-      addSubject({
+      await addSubject({
         name: form.name.trim(),
         credits,
         semester,
@@ -167,9 +181,9 @@ export default function Subjects() {
     setModalVisible(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (editingSubject) {
-      deleteSubject(editingSubject.id);
+      await deleteSubject(editingSubject.id);
       setModalVisible(false);
     }
   };
@@ -184,6 +198,14 @@ export default function Subjects() {
   const previewMarks = parseInt(form.marks, 10);
   const previewGrade = !isNaN(previewMarks) && previewMarks >= 0 && previewMarks <= 100
     ? calculateGrade(previewMarks) : null;
+
+  if (isLoading && subjects.length === 0) {
+    return (
+      <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color="#7C3AED" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
