@@ -82,12 +82,7 @@ export const useTimetableStore = create<TimetableStore>((set, get) => ({
       .select()
       .single();
 
-    if (error || !data) {
-      console.error('addClass insert error:', error);
-      return;
-    }
-
-    console.log('Inserted class:', data);
+    if (error || !data) return;
 
     set((state) => ({
       classes: [...state.classes, {
@@ -101,8 +96,6 @@ export const useTimetableStore = create<TimetableStore>((set, get) => ({
         color: (data.color ?? '#7C3AED') as string,
       }],
     }));
-
-    console.log('Classes after insert:', get().classes.length);
   },
 
   editClass: async (id, updates) => {

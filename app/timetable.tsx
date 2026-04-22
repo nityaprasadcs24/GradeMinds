@@ -112,30 +112,24 @@ export default function Timetable() {
       setFormError('Please fill in all fields');
       return;
     }
-    try {
-      if (editingClass) {
-        await editClass(editingClass.id, { ...form, day: selectedDay });
-      } else {
-        await addClass({ ...form, day: selectedDay });
-      }
-      await fetchClasses();
-      setModalVisible(false);
-    } catch (e) {
-      console.error('handleSave error:', e);
+    if (editingClass) {
+      await editClass(editingClass.id, { ...form, day: selectedDay });
+    } else {
+      await addClass({ ...form, day: selectedDay });
     }
+    setModalVisible(false);
   };
 
   const handleDelete = async () => {
     if (editingClass) {
-      try {
-        await deleteClass(editingClass.id);
-        await fetchClasses();
-        setModalVisible(false);
-      } catch (e) {
-        console.error('handleDelete error:', e);
-      }
+      await deleteClass(editingClass.id);
+      setModalVisible(false);
     }
   };
+
+  console.log('allClasses:', allClasses);
+  console.log('selectedDay:', selectedDay);
+  console.log('classes (filtered):', classes);
 
   // Build class map and occupied hours
   const classMap: Record<string, ClassSlot> = {};
@@ -187,6 +181,11 @@ export default function Timetable() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Debug */}
+      <Text style={{ color: 'white', fontSize: 12, padding: 10 }}>
+        Total classes: {allClasses.length} | Day: {selectedDay} | Day classes: {classes.length}
+      </Text>
 
       {/* Schedule */}
       <ScrollView style={styles.schedule} showsVerticalScrollIndicator={false}>
