@@ -16,74 +16,51 @@ export default function Splash() {
   const router = useRouter();
   const [showButton, setShowButton] = useState(false);
 
-  // Animation values
-  const bulbAnim     = useRef(new Animated.Value(0)).current;
-  const coreOpacity  = useRef(new Animated.Value(0)).current;
-  const coreScale    = useRef(new Animated.Value(0.5)).current;
-  const coneOpacity  = useRef(new Animated.Value(0)).current;
-  const glowOpacity  = useRef(new Animated.Value(0)).current;
+  const bulbAnim    = useRef(new Animated.Value(0)).current;
+  const coreOpacity = useRef(new Animated.Value(0)).current;
+  const coreScale   = useRef(new Animated.Value(0.5)).current;
+  const glowAnim    = useRef(new Animated.Value(0)).current;
   const titleOpacity = useRef(new Animated.Value(0)).current;
-  const titleY       = useRef(new Animated.Value(16)).current;
-  const tagOpacity   = useRef(new Animated.Value(0)).current;
-  const lineScale    = useRef(new Animated.Value(0)).current;
-  const btmOpacity   = useRef(new Animated.Value(0)).current;
-  const btnOpacity   = useRef(new Animated.Value(0)).current;
-  const btnY         = useRef(new Animated.Value(20)).current;
-  const stringPull   = useRef(new Animated.Value(0)).current;
+  const titleY      = useRef(new Animated.Value(16)).current;
+  const tagOpacity  = useRef(new Animated.Value(0)).current;
+  const lineScale   = useRef(new Animated.Value(0)).current;
+  const btmOpacity  = useRef(new Animated.Value(0)).current;
+  const btnOpacity  = useRef(new Animated.Value(0)).current;
+  const btnY        = useRef(new Animated.Value(20)).current;
+  const stringPull  = useRef(new Animated.Value(0)).current;
 
-  // Particles
   const particles = useRef(
-    Array.from({ length: 10 }, (_, i) => ({
+    Array.from({ length: 12 }, () => ({
       opacity: new Animated.Value(0),
       y: new Animated.Value(0),
-      left: W * 0.35 + Math.random() * W * 0.3,
-      top: H * 0.18 + Math.random() * H * 0.2,
+      left: W * 0.3 + Math.random() * W * 0.4,
+      top: H * 0.22 + Math.random() * H * 0.25,
     }))
   ).current;
 
   useEffect(() => {
     StatusBar.setHidden(true);
 
-    // String pull at 1s
-    Animated.timing(stringPull, {
-      toValue: 1, duration: 600, delay: 1000, useNativeDriver: true,
-    }).start();
+    Animated.timing(stringPull, { toValue: 1, duration: 600, delay: 1000, useNativeDriver: true }).start();
 
-    // Bulb glow at 2s
-    Animated.timing(bulbAnim, {
-      toValue: 1, duration: 2200, delay: 2000, useNativeDriver: false,
-    }).start();
+    Animated.timing(bulbAnim, { toValue: 1, duration: 2200, delay: 2000, useNativeDriver: false }).start();
 
-    // Light cone appears
-    Animated.timing(coneOpacity, {
-      toValue: 1, duration: 2800, delay: 1800, useNativeDriver: true,
-    }).start();
+    Animated.timing(glowAnim, { toValue: 1, duration: 3000, delay: 1800, useNativeDriver: true }).start();
 
-    // Room glow
-    Animated.timing(glowOpacity, {
-      toValue: 1, duration: 2500, delay: 2200, useNativeDriver: true,
-    }).start();
-
-    // Bulb core
     Animated.parallel([
       Animated.timing(coreOpacity, { toValue: 1, duration: 1500, delay: 2600, useNativeDriver: true }),
       Animated.spring(coreScale, { toValue: 1, delay: 2600, useNativeDriver: true }),
     ]).start();
 
-    // Title
     Animated.parallel([
       Animated.timing(titleOpacity, { toValue: 1, duration: 1500, delay: 2800, useNativeDriver: true }),
       Animated.timing(titleY, { toValue: 0, duration: 1500, delay: 2800, useNativeDriver: true }),
     ]).start();
 
-    // Tagline + line
     Animated.timing(tagOpacity, { toValue: 1, duration: 1200, delay: 3300, useNativeDriver: true }).start();
     Animated.timing(lineScale, { toValue: 1, duration: 800, delay: 3600, useNativeDriver: true }).start();
-
-    // Bottom
     Animated.timing(btmOpacity, { toValue: 1, duration: 1200, delay: 3800, useNativeDriver: true }).start();
 
-    // Button at 5s
     const t = setTimeout(() => {
       setShowButton(true);
       Animated.parallel([
@@ -92,68 +69,56 @@ export default function Splash() {
       ]).start();
     }, 5000);
 
-    // Particles
     particles.forEach((p, i) => {
       const loop = () => {
         p.opacity.setValue(0);
         p.y.setValue(0);
         Animated.sequence([
-          Animated.delay(2800 + i * 300),
+          Animated.delay(i * 300),
           Animated.parallel([
             Animated.sequence([
-              Animated.timing(p.opacity, { toValue: 0.8, duration: 600, useNativeDriver: true }),
-              Animated.timing(p.opacity, { toValue: 0, duration: 3500, useNativeDriver: true }),
+              Animated.timing(p.opacity, { toValue: 0.8, duration: 700, useNativeDriver: true }),
+              Animated.timing(p.opacity, { toValue: 0, duration: 3800, useNativeDriver: true }),
             ]),
-            Animated.timing(p.y, { toValue: 90 + Math.random() * 50, duration: 4100, useNativeDriver: true }),
+            Animated.timing(p.y, { toValue: 100 + Math.random() * 60, duration: 4500, useNativeDriver: true }),
           ]),
         ]).start(() => loop());
       };
-      setTimeout(() => loop(), i * 200);
+      setTimeout(() => loop(), 2800 + i * 250);
     });
 
-    return () => {
-      clearTimeout(t);
-      StatusBar.setHidden(false);
-    };
+    return () => { clearTimeout(t); StatusBar.setHidden(false); };
   }, []);
 
   const bulbBg = bulbAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#2A1F38', '#E8D4A0'],
+    inputRange: [0, 1], outputRange: ['#2A1F38', '#E8D4A0'],
   });
   const bulbShadow = bulbAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 50],
+    inputRange: [0, 1], outputRange: [0, 60],
   });
   const stringH = stringPull.interpolate({
-    inputRange: [0, 1],
-    outputRange: [36, 56],
+    inputRange: [0, 1], outputRange: [36, 58],
   });
   const tabTY = stringPull.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 18],
+    inputRange: [0, 1], outputRange: [0, 20],
   });
 
   return (
     <View style={styles.root}>
 
-      {/* ── Ambient room glow (behind everything) ── */}
-      <Animated.View style={[styles.roomGlow, { opacity: glowOpacity }]} pointerEvents="none" />
+      {/* ── Soft light glow layers (no hard edges, all blurred circles) ── */}
+      <Animated.View style={[styles.glow1, { opacity: glowAnim }]} pointerEvents="none" />
+      <Animated.View style={[styles.glow2, { opacity: glowAnim }]} pointerEvents="none" />
+      <Animated.View style={[styles.glow3, { opacity: glowAnim }]} pointerEvents="none" />
+      <Animated.View style={[styles.glow4, { opacity: glowAnim }]} pointerEvents="none" />
 
-      {/* ── Light beam cone ── */}
-      <Animated.View style={[styles.coneOuter, { opacity: coneOpacity }]} pointerEvents="none" />
-      <Animated.View style={[styles.coneMid,   { opacity: coneOpacity }]} pointerEvents="none" />
-      <Animated.View style={[styles.coneInner, { opacity: coneOpacity }]} pointerEvents="none" />
-
-      {/* ── Lamp assembly ── */}
+      {/* ── Lamp ── */}
       <View style={styles.lamp}>
         {/* Ceiling cord */}
         <View style={styles.cord} />
 
-        {/* Lampshade — cone shape using borders */}
+        {/* Lampshade — proper trapezoid, wider than bulb */}
         <View style={styles.shade} />
-
-        {/* Shade bottom rim */}
         <View style={styles.shadeRim} />
 
         {/* Bulb */}
@@ -163,7 +128,7 @@ export default function Splash() {
             {
               backgroundColor: bulbBg,
               shadowColor: '#E8D4A0',
-              shadowOpacity: 0.9,
+              shadowOpacity: 1,
               shadowRadius: bulbShadow,
               shadowOffset: { width: 0, height: 0 },
               elevation: 30,
@@ -171,10 +136,7 @@ export default function Splash() {
           ]}
         >
           <Animated.View
-            style={[
-              styles.bulbCore,
-              { opacity: coreOpacity, transform: [{ scale: coreScale }] },
-            ]}
+            style={[styles.bulbCore, { opacity: coreOpacity, transform: [{ scale: coreScale }] }]}
           />
         </Animated.View>
 
@@ -194,8 +156,8 @@ export default function Splash() {
         />
       ))}
 
-      {/* ── GradeMinds text ── */}
-      <View style={styles.textArea}>
+      {/* ── Center content — absolutely centered on screen ── */}
+      <View style={styles.centerContent}>
         <Animated.Text
           style={[styles.title, { opacity: titleOpacity, transform: [{ translateY: titleY }] }]}
         >
@@ -206,16 +168,22 @@ export default function Splash() {
           THINK ALIKE
         </Animated.Text>
 
-        <Animated.View style={[styles.divider, { opacity: tagOpacity, transform: [{ scaleX: lineScale }] }]} />
+        <Animated.View
+          style={[styles.divider, { opacity: tagOpacity, transform: [{ scaleX: lineScale }] }]}
+        />
       </View>
 
-      {/* ── Bottom ── */}
+      {/* ── Bottom section ── */}
       <Animated.View style={[styles.bottom, { opacity: btmOpacity }]}>
         <Text style={styles.subtitle}>WHERE LEARNING FINDS ITS LIGHT</Text>
 
         {showButton && (
           <Animated.View style={{ width: '100%', opacity: btnOpacity, transform: [{ translateY: btnY }] }}>
-            <TouchableOpacity style={styles.btn} onPress={() => router.replace('/login')} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => router.replace('/login')}
+              activeOpacity={0.85}
+            >
               <Text style={styles.btnText}>Get Started</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -225,7 +193,6 @@ export default function Splash() {
           grademinds<Text style={{ color: '#6B5580' }}>.bmsce</Text>
         </Text>
 
-        {/* Dots */}
         <View style={styles.dotsRow}>
           {[0, 1, 2].map((i) => (
             <View key={i} style={[styles.dot, { backgroundColor: i === 0 ? '#8B6BA8' : '#4A3B5C' }]} />
@@ -236,78 +203,95 @@ export default function Splash() {
   );
 }
 
-const LAMP_TOP = 48;
-const CORD_H   = 72;
-const SHADE_H  = 56;
-const BULB_TOP = LAMP_TOP + CORD_H + SHADE_H + 4; // approx y of bulb center
+// Lamp measurements
+const CORD_H  = 80;
+const SHADE_W = 160; // wide lampshade
+const SHADE_H = 70;
+const BULB_D  = 64;
+// Approximate Y center of bulb from top
+const BULB_Y  = 48 + CORD_H + SHADE_H + BULB_D / 2;
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#0F0A1C',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 48,
   },
 
-  // Ambient glow
-  roomGlow: {
+  // ── Soft glow layers — stacked ellipses that fade out naturally ──
+  // Big outermost halo
+  glow1: {
     position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: H * 0.55,
-    backgroundColor: 'transparent',
-    shadowColor: '#E8D4A0',
-    shadowOpacity: 0.12,
-    shadowRadius: 120,
-    shadowOffset: { width: 0, height: 80 },
+    top: BULB_Y - 40,
+    left: W / 2 - 200,
+    width: 400,
+    height: 520,
+    borderRadius: 200,
+    backgroundColor: 'rgba(255,248,200,0.03)',
+    shadowColor: '#FFF8C8',
+    shadowOpacity: 0.5,
+    shadowRadius: 80,
+    shadowOffset: { width: 0, height: 40 },
   },
-
-  // Cones — use semi-transparent Views with border radius as glow blobs
-  coneOuter: {
+  // Mid halo
+  glow2: {
     position: 'absolute',
-    top: BULB_TOP + 32,
-    left: W / 2 - 220,
-    width: 440,
-    height: 560,
-    borderRadius: 220,
-    backgroundColor: 'rgba(255,248,220,0.06)',
+    top: BULB_Y - 20,
+    left: W / 2 - 140,
+    width: 280,
+    height: 440,
+    borderRadius: 140,
+    backgroundColor: 'rgba(255,248,200,0.04)',
+    shadowColor: '#FFF8C8',
+    shadowOpacity: 0.6,
+    shadowRadius: 60,
+    shadowOffset: { width: 0, height: 30 },
   },
-  coneMid: {
+  // Inner warm cone
+  glow3: {
     position: 'absolute',
-    top: BULB_TOP + 32,
-    left: W / 2 - 150,
-    width: 300,
-    height: 480,
-    borderRadius: 150,
-    backgroundColor: 'rgba(255,248,220,0.09)',
-  },
-  coneInner: {
-    position: 'absolute',
-    top: BULB_TOP + 32,
+    top: BULB_Y,
     left: W / 2 - 90,
     width: 180,
-    height: 380,
+    height: 360,
     borderRadius: 90,
-    backgroundColor: 'rgba(255,254,240,0.13)',
+    backgroundColor: 'rgba(255,250,210,0.05)',
+    shadowColor: '#FFFADC',
+    shadowOpacity: 0.8,
+    shadowRadius: 50,
+    shadowOffset: { width: 0, height: 20 },
+  },
+  // Brightest centre spot just below bulb
+  glow4: {
+    position: 'absolute',
+    top: BULB_Y - 10,
+    left: W / 2 - 50,
+    width: 100,
+    height: 120,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,254,230,0.08)',
+    shadowColor: '#FFFEF0',
+    shadowOpacity: 1,
+    shadowRadius: 40,
+    shadowOffset: { width: 0, height: 10 },
   },
 
-  // Lamp
+  // ── Lamp ──
   lamp: {
     alignItems: 'center',
-    marginTop: LAMP_TOP,
+    marginTop: 48,
   },
   cord: {
     width: 2,
     height: CORD_H,
     backgroundColor: '#2A2535',
   },
-  // Trapezoid lampshade via border trick
+  // Trapezoid shade — wider than bulb
   shade: {
     width: 0,
     height: 0,
-    borderLeftWidth: 44,
-    borderRightWidth: 44,
-    borderTopWidth: 0,
+    borderLeftWidth: SHADE_W / 2,
+    borderRightWidth: SHADE_W / 2,
     borderBottomWidth: SHADE_H,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
@@ -315,24 +299,24 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
   },
   shadeRim: {
-    width: 96,
-    height: 4,
+    width: SHADE_W + 8,
+    height: 5,
     backgroundColor: '#1A1226',
-    borderRadius: 2,
+    borderRadius: 3,
     marginTop: -2,
   },
   bulb: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: BULB_D,
+    height: BULB_D,
+    borderRadius: BULB_D / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
   bulbCore: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FFF8E1',
   },
   pullString: {
@@ -350,7 +334,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Particle
+  // ── Particles ──
   particle: {
     position: 'absolute',
     width: 3,
@@ -359,11 +343,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(232,212,160,0.7)',
   },
 
-  // Text
-  textArea: {
+  // ── Center content — absolute center of screen ──
+  centerContent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
-    paddingHorizontal: 32,
-    marginTop: 32,
+    justifyContent: 'center',
   },
   title: {
     fontSize: 50,
@@ -386,10 +374,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#3A3142',
   },
 
-  // Bottom
+  // ── Bottom ──
   bottom: {
+    position: 'absolute',
+    bottom: 48,
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    width: '100%',
     paddingHorizontal: 32,
     gap: 14,
   },
@@ -398,6 +389,7 @@ const styles = StyleSheet.create({
     color: '#8B6BA8',
     letterSpacing: 4,
     textAlign: 'center',
+    marginBottom: 4,
   },
   btn: {
     width: '100%',
@@ -410,6 +402,7 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
     elevation: 12,
+    marginBottom: 4,
   },
   btnText: {
     color: '#EDE5FF',
@@ -422,6 +415,6 @@ const styles = StyleSheet.create({
     color: '#3A2D52',
     letterSpacing: 2,
   },
-  dotsRow: { flexDirection: 'row', gap: 8 },
+  dotsRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
 });
