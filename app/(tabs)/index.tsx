@@ -28,7 +28,7 @@ const DAYS = [
 const QUICK_ACCESS: { icon: string; color: string; label: string }[][] = [
   [
     { icon: 'calendar-outline', color: '#7C3AED', label: 'Timetable' },
-    { icon: 'document-text-outline', color: '#3B82F6', label: 'PYQ Bank' },
+    { icon: 'rocket-outline', color: '#3B82F6', label: 'Upskill' },
     { icon: 'stats-chart-outline', color: '#10B981', label: 'Attendance' },
     { icon: 'trending-up-outline', color: '#EC4899', label: 'Grade Graph' },
   ],
@@ -274,7 +274,8 @@ export default function Home() {
                 onPress={() => {
                   if (item.label === 'Timetable') router.push('/timetable');
                   if (item.label === 'Attendance') router.push('/attendance');
-		  if (item.label === 'Grade Graph') router.push('/grades-graph');
+                  if (item.label === 'Grade Graph') router.push('/grades-graph');
+                  if (item.label === 'Upskill') router.push('/upskill');
                 }}
               >
                 <Ionicons name={item.icon as any} size={32} color={item.color} />
@@ -299,14 +300,11 @@ function TodoRow({ todo, onToggle, onDelete, onCycle }: TodoRowProps) {
   const catColor = todo.category ? CATEGORY_COLORS[todo.category] : null;
   return (
     <View style={todoStyles.row}>
-      {/* Checkbox */}
       <TouchableOpacity onPress={onToggle} activeOpacity={0.7}>
         <View style={[todoStyles.checkbox, todo.completed && todoStyles.checkboxDone]}>
           {todo.completed && <Text style={todoStyles.checkmark}>✓</Text>}
         </View>
       </TouchableOpacity>
-
-      {/* Category dot */}
       <TouchableOpacity onPress={onCycle} activeOpacity={0.7}>
         <View
           style={[
@@ -317,19 +315,12 @@ function TodoRow({ todo, onToggle, onDelete, onCycle }: TodoRowProps) {
           ]}
         />
       </TouchableOpacity>
-
-      {/* Text */}
       <Text
-        style={[
-          todoStyles.taskText,
-          todo.completed && todoStyles.taskTextDone,
-        ]}
+        style={[todoStyles.taskText, todo.completed && todoStyles.taskTextDone]}
         numberOfLines={2}
       >
         {todo.text}
       </Text>
-
-      {/* Delete */}
       <TouchableOpacity onPress={onDelete} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Text style={todoStyles.deleteBtn}>×</Text>
       </TouchableOpacity>
@@ -338,375 +329,71 @@ function TodoRow({ todo, onToggle, onDelete, onCycle }: TodoRowProps) {
 }
 
 const todoStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginVertical: 6,
-    gap: 12,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: '#334155',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxDone: {
-    backgroundColor: '#7C3AED',
-    borderWidth: 0,
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-  catDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  taskText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#F8FAFC',
-  },
-  taskTextDone: {
-    color: '#475569',
-    textDecorationLine: 'line-through',
-  },
-  deleteBtn: {
-    fontSize: 18,
-    color: '#334155',
-    lineHeight: 20,
-  },
+  row: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginVertical: 6, gap: 12 },
+  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
+  checkboxDone: { backgroundColor: '#7C3AED', borderWidth: 0 },
+  checkmark: { color: '#FFFFFF', fontSize: 12, textAlign: 'center', lineHeight: 14 },
+  catDot: { width: 8, height: 8, borderRadius: 4 },
+  taskText: { flex: 1, fontSize: 15, color: '#F8FAFC' },
+  taskTextDone: { color: '#475569', textDecorationLine: 'line-through' },
+  deleteBtn: { fontSize: 18, color: '#334155', lineHeight: 20 },
 });
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#0D0D1A',
-  },
-  scroll: {
-    paddingBottom: 100,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 16,
-  },
-  greeting: {
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  brand: {
-    fontFamily: 'Georgia',
-    fontSize: 26,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  // Stats Row
-  statsRow: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    marginTop: 8,
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'flex-start',
-  },
-  statIcon: {
-    marginBottom: 8,
-  },
-  statValue: {
-    fontFamily: 'Georgia',
-    fontSize: 26,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#64748B',
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-
-  // Shared card
-  card: {
-    marginHorizontal: 20,
-    marginTop: 16,
-    backgroundColor: '#1A1A2E',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-
-  // Now In Class
-  nowInClassHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  nowInClassLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    letterSpacing: 2,
-  },
-  livePill: {
-    backgroundColor: 'rgba(16,185,129,0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  livePillText: {
-    color: '#10B981',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  subjectName: {
-    fontFamily: 'Georgia',
-    fontSize: 22,
-    color: '#FFFFFF',
-    marginTop: 8,
-  },
-  classDetails: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4,
-  },
-  progressTrack: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 999,
-    marginTop: 16,
-  },
-  progressFill: {
-    width: '60%',
-    height: 4,
-    backgroundColor: '#7C3AED',
-    borderRadius: 999,
-  },
-  timeLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  timeLabel: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  noClassText: {
-    fontSize: 16,
-    color: '#64748B',
-    marginTop: 12,
-  },
-  attendanceWarning: {
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderRadius: 12,
-    padding: 10,
-    marginHorizontal: 20,
-    marginTop: 8,
-  },
-  attendanceWarningText: {
-    color: '#EF4444',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-
-  // Calendar
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  calendarMonth: {
-    fontFamily: 'Georgia',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  calendarNav: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  navArrow: {
-    fontSize: 20,
-    color: '#64748B',
-  },
-  daysRow: {
-    flexDirection: 'row',
-    marginTop: 16,
-  },
-  dayCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  dayLetter: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  dateCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateCircleToday: {
-    backgroundColor: '#7C3AED',
-  },
-  dateNum: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  dateNumToday: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  classDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#7C3AED',
-  },
-  classDotEmpty: {
-    width: 4,
-    height: 4,
-  },
-
-  // Quick Access
-  quickAccessSection: {
-    marginHorizontal: 20,
-    marginTop: 20,
-  },
-  quickRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  quickBtn: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: '#1A1A2E',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  quickLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 6,
-    textAlign: 'center',
-  },
-
-  // Shared section label
-  sectionLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    letterSpacing: 2,
-  },
-
-  // To-Do
-  todoHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  todoStats: {
-    fontSize: 10,
-    color: '#64748B',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 16,
-  },
-  taskInput: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingRight: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    fontSize: 15,
-  },
-  taskInputFocused: {
-    borderBottomColor: '#7C3AED',
-  },
-  addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    lineHeight: 36,
-    textAlign: 'center',
-  },
-  emptyState: {
-    fontSize: 13,
-    color: '#334155',
-    textAlign: 'center',
-    marginVertical: 20,
-    marginHorizontal: 20,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginHorizontal: 20,
-    marginVertical: 12,
-  },
-  completedToggle: {
-    marginHorizontal: 20,
-    marginBottom: 4,
-  },
-  completedToggleText: {
-    fontSize: 11,
-    color: '#475569',
-    letterSpacing: 1,
-  },
-  completedRow: {
-    opacity: 0.5,
-  },
+  root: { flex: 1, backgroundColor: '#0D0D1A' },
+  scroll: { paddingBottom: 100 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16 },
+  greeting: { fontSize: 13, color: '#64748B', marginBottom: 4 },
+  brand: { fontFamily: 'Georgia', fontSize: 26, color: '#FFFFFF', fontWeight: '700' },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  avatarText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', marginHorizontal: 20, marginTop: 8, gap: 10 },
+  statCard: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', alignItems: 'flex-start' },
+  statIcon: { marginBottom: 8 },
+  statValue: { fontFamily: 'Georgia', fontSize: 26, color: '#FFFFFF', fontWeight: '700' },
+  statLabel: { fontSize: 11, color: '#64748B', letterSpacing: 1, marginTop: 2 },
+  card: { marginHorizontal: 20, marginTop: 16, backgroundColor: '#1A1A2E', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  nowInClassHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  nowInClassLabel: { fontSize: 10, color: '#64748B', letterSpacing: 2 },
+  livePill: { backgroundColor: 'rgba(16,185,129,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  livePillText: { color: '#10B981', fontSize: 11, fontWeight: '600' },
+  subjectName: { fontFamily: 'Georgia', fontSize: 22, color: '#FFFFFF', marginTop: 8 },
+  classDetails: { fontSize: 13, color: '#64748B', marginTop: 4 },
+  progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, marginTop: 16 },
+  progressFill: { width: '60%', height: 4, backgroundColor: '#7C3AED', borderRadius: 999 },
+  timeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  timeLabel: { fontSize: 11, color: '#64748B' },
+  noClassText: { fontSize: 16, color: '#64748B', marginTop: 12 },
+  attendanceWarning: { backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 12, padding: 10, marginHorizontal: 20, marginTop: 8 },
+  attendanceWarningText: { color: '#EF4444', fontSize: 12, textAlign: 'center' },
+  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  calendarMonth: { fontFamily: 'Georgia', fontSize: 16, color: '#FFFFFF' },
+  calendarNav: { flexDirection: 'row', gap: 12 },
+  navArrow: { fontSize: 20, color: '#64748B' },
+  daysRow: { flexDirection: 'row', marginTop: 16 },
+  dayCol: { flex: 1, alignItems: 'center', gap: 6 },
+  dayLetter: { fontSize: 11, color: '#64748B' },
+  dateCircle: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  dateCircleToday: { backgroundColor: '#7C3AED' },
+  dateNum: { fontSize: 14, color: '#FFFFFF' },
+  dateNumToday: { color: '#FFFFFF', fontWeight: '700' },
+  classDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#7C3AED' },
+  classDotEmpty: { width: 4, height: 4 },
+  quickAccessSection: { marginHorizontal: 20, marginTop: 20 },
+  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  quickBtn: { flex: 1, aspectRatio: 1, backgroundColor: '#1A1A2E', borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  quickLabel: { fontSize: 10, color: '#64748B', marginTop: 6, textAlign: 'center' },
+  sectionLabel: { fontSize: 10, color: '#64748B', letterSpacing: 2 },
+  todoHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 24, marginBottom: 16 },
+  todoStats: { fontSize: 10, color: '#64748B' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16 },
+  taskInput: { flex: 1, paddingVertical: 10, paddingRight: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', fontSize: 15 },
+  taskInputFocused: { borderBottomColor: '#7C3AED' },
+  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
+  addBtnText: { color: '#FFFFFF', fontSize: 22, lineHeight: 36, textAlign: 'center' },
+  emptyState: { fontSize: 13, color: '#334155', textAlign: 'center', marginVertical: 20, marginHorizontal: 20 },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 20, marginVertical: 12 },
+  completedToggle: { marginHorizontal: 20, marginBottom: 4 },
+  completedToggleText: { fontSize: 11, color: '#475569', letterSpacing: 1 },
+  completedRow: { opacity: 0.5 },
 });
