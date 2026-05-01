@@ -1,11 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Dimensions, Linking, Modal,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Animated, StatusBar,
+  LayoutAnimation, UIManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { width: W } = Dimensions.get('window');
 
@@ -13,7 +18,7 @@ type Year   = '1' | '2' | '3' | '4';
 type Branch = 'CSE' | 'CSDS' | 'CSBS' | 'ISE' | 'AIML' | 'ECE' | 'EEE';
 type Tab    = 'courses' | 'leetcode' | 'qbank';
 
-// ─── Subject map per year/branch (BMSCE VTU autonomous) ───────────────────────
+// ─── Data ─────────────────────────────────────────────────────────────────────
 
 const SUBJECT_MAP: Record<string, Record<string, string[]>> = {
   '1': {
@@ -54,12 +59,10 @@ const SUBJECT_MAP: Record<string, Record<string, string[]>> = {
   },
 };
 
-// ─── Q-Bank data keyed by subject ─────────────────────────────────────────────
-
 const QBANK_DATA: Record<string, { q: string; type: 'FAQ' | 'PYQ' }[]> = {
   'DSA': [
     { q: 'What is Big-O notation? Explain with examples.', type: 'FAQ' },
-    { q: 'Explain Dijkstra\'s algorithm with a worked example.', type: 'PYQ' },
+    { q: "Explain Dijkstra's algorithm with a worked example.", type: 'PYQ' },
     { q: 'Difference between BFS and DFS with applications?', type: 'FAQ' },
     { q: 'Explain AVL trees and rotations.', type: 'PYQ' },
   ],
@@ -157,48 +160,44 @@ const QBANK_DATA: Record<string, { q: string; type: 'FAQ' | 'PYQ' }[]> = {
   ],
 };
 
-// ─── Courses ──────────────────────────────────────────────────────────────────
-
 const COURSES = [
-  { title: 'CS Fundamentals — Data Structures', provider: 'Coursera · UC San Diego', tag: 'DSA', color: '#7C3AED', url: 'https://www.coursera.org/specializations/data-structures-algorithms', years: ['2','3','4'], branches: ['CSE','CSDS','CSBS','ISE','AIML'] },
-  { title: 'Machine Learning Specialization', provider: 'Coursera · Andrew Ng', tag: 'ML', color: '#3B82F6', url: 'https://www.coursera.org/specializations/machine-learning-introduction', years: ['3','4'], branches: ['CSDS','AIML','CSE'] },
-  { title: 'Full Stack Web Development', provider: 'Udemy · Angela Yu', tag: 'Web', color: '#10B981', url: 'https://www.udemy.com/course/the-complete-web-development-bootcamp/', years: ['2','3','4'], branches: ['CSE','CSBS','ISE','CSDS','AIML'] },
-  { title: 'Python for Everybody', provider: 'Coursera · U of Michigan', tag: 'Python', color: '#06B6D4', url: 'https://www.coursera.org/specializations/python', years: ['1','2'], branches: ['CSE','CSDS','CSBS','ISE','AIML','ECE','EEE'] },
-  { title: 'Digital Circuits & Systems', provider: 'NPTEL · IIT Madras', tag: 'Core', color: '#F59E0B', url: 'https://nptel.ac.in/courses/117106086', years: ['1','2'], branches: ['ECE','EEE'] },
-  { title: 'Operating Systems', provider: 'OSTEP · Free', tag: 'OS', color: '#EC4899', url: 'https://ostep.org', years: ['2','3'], branches: ['CSE','CSDS','CSBS','ISE'] },
-  { title: 'Database Management Systems', provider: 'NPTEL · IIT Madras', tag: 'DBMS', color: '#8B5CF6', url: 'https://nptel.ac.in/courses/106106093', years: ['2','3'], branches: ['CSE','CSDS','CSBS','ISE'] },
-  { title: 'Engineering Mathematics', provider: 'NPTEL · IIT Roorkee', tag: 'Math', color: '#64748B', url: 'https://nptel.ac.in/courses/111107105', years: ['1','2'], branches: ['CSE','CSDS','CSBS','ISE','ECE','EEE','AIML'] },
-  { title: 'Cloud Computing with AWS', provider: 'Coursera · AWS', tag: 'Cloud', color: '#EF4444', url: 'https://www.coursera.org/learn/aws-cloud-technical-essentials', years: ['3','4'], branches: ['CSE','CSDS','ISE','AIML'] },
-  { title: 'VLSI Design Fundamentals', provider: 'NPTEL · IIT Madras', tag: 'VLSI', color: '#F59E0B', url: 'https://nptel.ac.in/courses/117106092', years: ['3','4'], branches: ['ECE','EEE'] },
-  { title: 'Deep Learning Specialization', provider: 'Coursera · Andrew Ng', tag: 'DL', color: '#3B82F6', url: 'https://www.coursera.org/specializations/deep-learning', years: ['3','4'], branches: ['CSDS','AIML','CSE'] },
-  { title: 'Computer Networks', provider: 'Coursera · Stanford', tag: 'Networks', color: '#06B6D4', url: 'https://www.coursera.org/learn/computer-networking', years: ['3','4'], branches: ['CSE','CSDS','ISE'] },
-  { title: 'Embedded Systems', provider: 'Coursera · UC Boulder', tag: 'Embedded', color: '#F97316', url: 'https://www.coursera.org/specializations/embedded-systems-software', years: ['3','4'], branches: ['ECE','EEE'] },
+  { title: 'CS Fundamentals — Data Structures',       provider: 'Coursera · UC San Diego',  tag: 'DSA',      color: '#7C3AED', url: 'https://www.coursera.org/specializations/data-structures-algorithms',          years: ['2','3','4'], branches: ['CSE','CSDS','CSBS','ISE','AIML'] },
+  { title: 'Machine Learning Specialization',          provider: 'Coursera · Andrew Ng',     tag: 'ML',       color: '#3B82F6', url: 'https://www.coursera.org/specializations/machine-learning-introduction',      years: ['3','4'],     branches: ['CSDS','AIML','CSE'] },
+  { title: 'Full Stack Web Development',               provider: 'Udemy · Angela Yu',        tag: 'Web',      color: '#10B981', url: 'https://www.udemy.com/course/the-complete-web-development-bootcamp/',         years: ['2','3','4'], branches: ['CSE','CSBS','ISE','CSDS','AIML'] },
+  { title: 'Python for Everybody',                     provider: 'Coursera · U of Michigan', tag: 'Python',   color: '#06B6D4', url: 'https://www.coursera.org/specializations/python',                             years: ['1','2'],     branches: ['CSE','CSDS','CSBS','ISE','AIML','ECE','EEE'] },
+  { title: 'Digital Circuits & Systems',               provider: 'NPTEL · IIT Madras',       tag: 'Core',     color: '#F59E0B', url: 'https://nptel.ac.in/courses/117106086',                                       years: ['1','2'],     branches: ['ECE','EEE'] },
+  { title: 'Operating Systems',                        provider: 'OSTEP · Free',             tag: 'OS',       color: '#EC4899', url: 'https://ostep.org',                                                           years: ['2','3'],     branches: ['CSE','CSDS','CSBS','ISE'] },
+  { title: 'Database Management Systems',              provider: 'NPTEL · IIT Madras',       tag: 'DBMS',     color: '#8B5CF6', url: 'https://nptel.ac.in/courses/106106093',                                       years: ['2','3'],     branches: ['CSE','CSDS','CSBS','ISE'] },
+  { title: 'Engineering Mathematics',                  provider: 'NPTEL · IIT Roorkee',      tag: 'Math',     color: '#64748B', url: 'https://nptel.ac.in/courses/111107105',                                       years: ['1','2'],     branches: ['CSE','CSDS','CSBS','ISE','ECE','EEE','AIML'] },
+  { title: 'Cloud Computing with AWS',                 provider: 'Coursera · AWS',           tag: 'Cloud',    color: '#EF4444', url: 'https://www.coursera.org/learn/aws-cloud-technical-essentials',               years: ['3','4'],     branches: ['CSE','CSDS','ISE','AIML'] },
+  { title: 'VLSI Design Fundamentals',                 provider: 'NPTEL · IIT Madras',       tag: 'VLSI',     color: '#F59E0B', url: 'https://nptel.ac.in/courses/117106092',                                       years: ['3','4'],     branches: ['ECE','EEE'] },
+  { title: 'Deep Learning Specialization',             provider: 'Coursera · Andrew Ng',     tag: 'DL',       color: '#3B82F6', url: 'https://www.coursera.org/specializations/deep-learning',                      years: ['3','4'],     branches: ['CSDS','AIML','CSE'] },
+  { title: 'Computer Networks',                        provider: 'Coursera · Stanford',      tag: 'Networks', color: '#06B6D4', url: 'https://www.coursera.org/learn/computer-networking',                          years: ['3','4'],     branches: ['CSE','CSDS','ISE'] },
+  { title: 'Embedded Systems',                         provider: 'Coursera · UC Boulder',    tag: 'Embedded', color: '#F97316', url: 'https://www.coursera.org/specializations/embedded-systems-software',          years: ['3','4'],     branches: ['ECE','EEE'] },
 ];
-
-// ─── LeetCode problems ────────────────────────────────────────────────────────
 
 const LEET_PROBLEMS = [
-  { id: 'l1',  title: 'Two Sum',                              difficulty: 'Easy',   tag: 'Arrays',          url: 'https://leetcode.com/problems/two-sum' },
-  { id: 'l2',  title: 'Best Time to Buy and Sell Stock',      difficulty: 'Easy',   tag: 'Arrays',          url: 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock' },
-  { id: 'l3',  title: 'Valid Parentheses',                    difficulty: 'Easy',   tag: 'Stack',           url: 'https://leetcode.com/problems/valid-parentheses' },
-  { id: 'l4',  title: 'Merge Two Sorted Lists',               difficulty: 'Easy',   tag: 'LinkedList',      url: 'https://leetcode.com/problems/merge-two-sorted-lists' },
-  { id: 'l5',  title: 'Binary Search',                        difficulty: 'Easy',   tag: 'Binary Search',   url: 'https://leetcode.com/problems/binary-search' },
-  { id: 'l6',  title: 'Climbing Stairs',                      difficulty: 'Easy',   tag: 'DP',              url: 'https://leetcode.com/problems/climbing-stairs' },
-  { id: 'l7',  title: 'Longest Substring Without Repeating Characters', difficulty: 'Medium', tag: 'Sliding Window', url: 'https://leetcode.com/problems/longest-substring-without-repeating-characters' },
-  { id: 'l8',  title: 'Container With Most Water',            difficulty: 'Medium', tag: 'Two Pointers',    url: 'https://leetcode.com/problems/container-with-most-water' },
-  { id: 'l9',  title: '3Sum',                                 difficulty: 'Medium', tag: 'Two Pointers',    url: 'https://leetcode.com/problems/3sum' },
-  { id: 'l10', title: 'Number of Islands',                    difficulty: 'Medium', tag: 'Graphs',          url: 'https://leetcode.com/problems/number-of-islands' },
-  { id: 'l11', title: 'Coin Change',                          difficulty: 'Medium', tag: 'DP',              url: 'https://leetcode.com/problems/coin-change' },
-  { id: 'l12', title: 'Word Break',                           difficulty: 'Medium', tag: 'DP',              url: 'https://leetcode.com/problems/word-break' },
-  { id: 'l13', title: 'Merge Intervals',                      difficulty: 'Medium', tag: 'Arrays',          url: 'https://leetcode.com/problems/merge-intervals' },
-  { id: 'l14', title: 'LRU Cache',                            difficulty: 'Medium', tag: 'Design',          url: 'https://leetcode.com/problems/lru-cache' },
-  { id: 'l15', title: 'Find Minimum in Rotated Sorted Array', difficulty: 'Medium', tag: 'Binary Search',   url: 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array' },
-  { id: 'l16', title: 'Trapping Rain Water',                  difficulty: 'Hard',   tag: 'Two Pointers',    url: 'https://leetcode.com/problems/trapping-rain-water' },
-  { id: 'l17', title: 'Median of Two Sorted Arrays',          difficulty: 'Hard',   tag: 'Binary Search',   url: 'https://leetcode.com/problems/median-of-two-sorted-arrays' },
-  { id: 'l18', title: 'Serialize and Deserialize Binary Tree',difficulty: 'Hard',   tag: 'Trees',           url: 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree' },
+  { id: 'l1',  title: 'Two Sum',                                       difficulty: 'Easy',   tag: 'Arrays',         url: 'https://leetcode.com/problems/two-sum' },
+  { id: 'l2',  title: 'Best Time to Buy and Sell Stock',               difficulty: 'Easy',   tag: 'Arrays',         url: 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock' },
+  { id: 'l3',  title: 'Valid Parentheses',                             difficulty: 'Easy',   tag: 'Stack',          url: 'https://leetcode.com/problems/valid-parentheses' },
+  { id: 'l4',  title: 'Merge Two Sorted Lists',                        difficulty: 'Easy',   tag: 'LinkedList',     url: 'https://leetcode.com/problems/merge-two-sorted-lists' },
+  { id: 'l5',  title: 'Binary Search',                                 difficulty: 'Easy',   tag: 'Binary Search',  url: 'https://leetcode.com/problems/binary-search' },
+  { id: 'l6',  title: 'Climbing Stairs',                               difficulty: 'Easy',   tag: 'DP',             url: 'https://leetcode.com/problems/climbing-stairs' },
+  { id: 'l7',  title: 'Longest Substring Without Repeating Characters',difficulty: 'Medium', tag: 'Sliding Window', url: 'https://leetcode.com/problems/longest-substring-without-repeating-characters' },
+  { id: 'l8',  title: 'Container With Most Water',                     difficulty: 'Medium', tag: 'Two Pointers',   url: 'https://leetcode.com/problems/container-with-most-water' },
+  { id: 'l9',  title: '3Sum',                                          difficulty: 'Medium', tag: 'Two Pointers',   url: 'https://leetcode.com/problems/3sum' },
+  { id: 'l10', title: 'Number of Islands',                             difficulty: 'Medium', tag: 'Graphs',         url: 'https://leetcode.com/problems/number-of-islands' },
+  { id: 'l11', title: 'Coin Change',                                   difficulty: 'Medium', tag: 'DP',             url: 'https://leetcode.com/problems/coin-change' },
+  { id: 'l12', title: 'Word Break',                                    difficulty: 'Medium', tag: 'DP',             url: 'https://leetcode.com/problems/word-break' },
+  { id: 'l13', title: 'Merge Intervals',                               difficulty: 'Medium', tag: 'Arrays',         url: 'https://leetcode.com/problems/merge-intervals' },
+  { id: 'l14', title: 'LRU Cache',                                     difficulty: 'Medium', tag: 'Design',         url: 'https://leetcode.com/problems/lru-cache' },
+  { id: 'l15', title: 'Find Minimum in Rotated Sorted Array',          difficulty: 'Medium', tag: 'Binary Search',  url: 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array' },
+  { id: 'l16', title: 'Trapping Rain Water',                           difficulty: 'Hard',   tag: 'Two Pointers',   url: 'https://leetcode.com/problems/trapping-rain-water' },
+  { id: 'l17', title: 'Median of Two Sorted Arrays',                   difficulty: 'Hard',   tag: 'Binary Search',  url: 'https://leetcode.com/problems/median-of-two-sorted-arrays' },
+  { id: 'l18', title: 'Serialize and Deserialize Binary Tree',         difficulty: 'Hard',   tag: 'Trees',          url: 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree' },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const STREAK_KEY   = 'upskill_streak';
 const SOLVED_KEY   = 'upskill_solved';
@@ -206,505 +205,698 @@ const LAST_DAY_KEY = 'upskill_lastday';
 const GOAL_KEY     = 'upskill_goal';
 const TODAY_KEY    = 'upskill_today';
 
+const YEARS:       Year[]   = ['1', '2', '3', '4'];
+const BRANCHES:    Branch[] = ['CSE', 'CSDS', 'CSBS', 'ISE', 'AIML', 'ECE', 'EEE'];
+const GOAL_OPTIONS          = [1, 2, 3, 5];
+
+const TAB_ITEMS: { key: Tab; label: string; icon: string }[] = [
+  { key: 'courses',  label: 'Courses',  icon: '📚' },
+  { key: 'leetcode', label: 'LeetCode', icon: '💻' },
+  { key: 'qbank',    label: 'Q-Bank',   icon: '❓' },
+];
+
+const OUTER   = 20;
+const TB_PAD  = 3;
+const TAB_W   = (W - OUTER * 2 - TB_PAD * 2) / 3;
+
 function diffColor(d: string) {
   if (d === 'Easy')   return '#10B981';
   if (d === 'Medium') return '#F59E0B';
   return '#EF4444';
 }
 
-const YEARS:    Year[]   = ['1', '2', '3', '4'];
-const BRANCHES: Branch[] = ['CSE', 'CSDS', 'CSBS', 'ISE', 'AIML', 'ECE', 'EEE'];
-const GOAL_OPTIONS = [1, 2, 3, 5];
-
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Upskill() {
   const router = useRouter();
 
-  const [tab, setTab]         = useState<Tab>('courses');
-  const [year, setYear]       = useState<Year>('2');
-  const [branch, setBranch]   = useState<Branch>('CSE');
-  const [selSubj, setSelSubj] = useState('All');
-  const [streak, setStreak]   = useState(0);
-  const [solved, setSolved]   = useState<Set<string>>(new Set());
-  const [dailyGoal, setDailyGoal] = useState(2);
-  const [todaySolved, setTodaySolved] = useState(0);
-  const [showGoalModal, setShowGoalModal] = useState(false);
-  const [goalInput, setGoalInput] = useState(2);
-  const [goalSet, setGoalSet] = useState(false);
+  const [tab,          setTab]          = useState<Tab>('courses');
+  const [year,         setYear]         = useState<Year>('2');
+  const [branch,       setBranch]       = useState<Branch>('CSE');
+  const [selSubj,      setSelSubj]      = useState('All');
+  const [streak,       setStreak]       = useState(0);
+  const [solved,       setSolved]       = useState<Set<string>>(new Set());
+  const [dailyGoal,    setDailyGoal]    = useState(2);
+  const [todaySolved,  setTodaySolved]  = useState(0);
+  const [showGoalModal,setShowGoalModal]= useState(false);
+  const [goalInput,    setGoalInput]    = useState(2);
+  const [expandedQ,    setExpandedQ]    = useState<Set<number>>(new Set());
+
+  const tabAnim   = useRef(new Animated.Value(0)).current;
+  const fadeAnim  = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const leetAnims = useRef(LEET_PROBLEMS.map(() => new Animated.Value(1))).current;
 
   useEffect(() => {
     (async () => {
-      const s   = await AsyncStorage.getItem(STREAK_KEY);
-      const sv  = await AsyncStorage.getItem(SOLVED_KEY);
-      const g   = await AsyncStorage.getItem(GOAL_KEY);
-      const td  = await AsyncStorage.getItem(TODAY_KEY);
-      const ld  = await AsyncStorage.getItem(LAST_DAY_KEY);
+      const [s, sv, g, td, ld] = await Promise.all([
+        AsyncStorage.getItem(STREAK_KEY),
+        AsyncStorage.getItem(SOLVED_KEY),
+        AsyncStorage.getItem(GOAL_KEY),
+        AsyncStorage.getItem(TODAY_KEY),
+        AsyncStorage.getItem(LAST_DAY_KEY),
+      ]);
       const today = new Date().toDateString();
 
-      if (s)  setStreak(parseInt(s));
+      if (s)  setStreak(+s);
       if (sv) setSolved(new Set(JSON.parse(sv)));
-      if (g)  { setDailyGoal(parseInt(g)); setGoalSet(true); setGoalInput(parseInt(g)); }
+      if (g)  { setDailyGoal(+g); setGoalInput(+g); }
       else    setShowGoalModal(true);
 
-      // Reset today's count if it's a new day
       if (ld !== today) {
         setTodaySolved(0);
-        await AsyncStorage.setItem(TODAY_KEY, '0');
-        await AsyncStorage.setItem(LAST_DAY_KEY, today);
+        await Promise.all([
+          AsyncStorage.setItem(TODAY_KEY,    '0'),
+          AsyncStorage.setItem(LAST_DAY_KEY, today),
+        ]);
       } else if (td) {
-        setTodaySolved(parseInt(td));
+        setTodaySolved(+td);
       }
     })();
   }, []);
 
+  const switchTab = useCallback((newTab: Tab) => {
+    if (newTab === tab) return;
+    const idx = TAB_ITEMS.findIndex(t => t.key === newTab);
+
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 0, duration: 100, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 8, duration: 80,  useNativeDriver: true }),
+    ]).start(() => {
+      setTab(newTab);
+      setSelSubj('All');
+      slideAnim.setValue(-8);
+      Animated.spring(tabAnim, { toValue: idx, speed: 20, bounciness: 6, useNativeDriver: true }).start();
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, speed: 22, bounciness: 2, useNativeDriver: true }),
+      ]).start();
+    });
+  }, [tab]);
+
   const saveGoal = async () => {
     setDailyGoal(goalInput);
-    setGoalSet(true);
     setShowGoalModal(false);
     await AsyncStorage.setItem(GOAL_KEY, String(goalInput));
   };
 
-  const markSolved = async (id: string) => {
-    const newSolved = new Set(solved);
-    let newTodaySolved = todaySolved;
+  const markSolved = async (id: string, idx: number) => {
+    Animated.sequence([
+      Animated.spring(leetAnims[idx], { toValue: 0.8,  speed: 50, bounciness: 0,  useNativeDriver: true }),
+      Animated.spring(leetAnims[idx], { toValue: 1,    speed: 18, bounciness: 10, useNativeDriver: true }),
+    ]).start();
 
-    if (newSolved.has(id)) {
-      newSolved.delete(id);
-      newTodaySolved = Math.max(0, newTodaySolved - 1);
+    const ns  = new Set(solved);
+    let   nts = todaySolved;
+
+    if (ns.has(id)) {
+      ns.delete(id);
+      nts = Math.max(0, nts - 1);
     } else {
-      newSolved.add(id);
-      newTodaySolved += 1;
-      // Streak increments when daily goal is hit for the first time today
-      if (newTodaySolved === dailyGoal) {
-        const newStreak = streak + 1;
-        setStreak(newStreak);
-        await AsyncStorage.setItem(STREAK_KEY, String(newStreak));
+      ns.add(id);
+      nts += 1;
+      if (nts === dailyGoal) {
+        const nst = streak + 1;
+        setStreak(nst);
+        await AsyncStorage.setItem(STREAK_KEY, String(nst));
       }
     }
-    setSolved(newSolved);
-    setTodaySolved(newTodaySolved);
-    await AsyncStorage.setItem(SOLVED_KEY, JSON.stringify([...newSolved]));
-    await AsyncStorage.setItem(TODAY_KEY, String(newTodaySolved));
+    setSolved(ns);
+    setTodaySolved(nts);
+    await Promise.all([
+      AsyncStorage.setItem(SOLVED_KEY, JSON.stringify([...ns])),
+      AsyncStorage.setItem(TODAY_KEY,  String(nts)),
+    ]);
   };
 
-  // Subjects for current year/branch
-  const currentSubjects: string[] = SUBJECT_MAP[year]?.[branch] ?? [];
+  const toggleQ = (i: number) => {
+    LayoutAnimation.configureNext({
+      duration: 240,
+      update: { type: LayoutAnimation.Types.easeInEaseOut },
+    });
+    setExpandedQ(prev => {
+      const nx = new Set(prev);
+      nx.has(i) ? nx.delete(i) : nx.add(i);
+      return nx;
+    });
+  };
 
-  // Q-Bank subjects that have data
-  const availableSubjects = currentSubjects.filter(s =>
+  const currentSubjects   = SUBJECT_MAP[year]?.[branch] ?? [];
+  const availableSubjects = currentSubjects.filter(sub =>
     Object.keys(QBANK_DATA).some(k =>
-      k === s || k.startsWith(s.split(' ')[0]) || s.startsWith(k.split(' ')[0])
+      k === sub || k.startsWith(sub.split(' ')[0]) || sub.startsWith(k.split(' ')[0])
     )
   );
 
-  // Q-Bank questions filtered by subject
   const getQBankItems = () => {
-    const matchKey = (s: string, k: string) =>
-      k === s || k.startsWith(s.split(' ')[0]) || s.startsWith(k.split(' ')[0]);
-
-    const items: { q: string; type: 'FAQ' | 'PYQ'; subject: string }[] = [];
-    const subjectsToShow = selSubj === 'All' ? currentSubjects : [selSubj];
-
-    subjectsToShow.forEach(s => {
+    const mk = (sub: string, k: string) =>
+      k === sub || k.startsWith(sub.split(' ')[0]) || sub.startsWith(k.split(' ')[0]);
+    const out: { q: string; type: 'FAQ' | 'PYQ'; subject: string }[] = [];
+    (selSubj === 'All' ? currentSubjects : [selSubj]).forEach(sub =>
       Object.entries(QBANK_DATA).forEach(([k, qs]) => {
-        if (matchKey(s, k)) {
-          qs.forEach(q => items.push({ ...q, subject: k }));
-        }
-      });
-    });
-
-    // Dedupe
+        if (mk(sub, k)) qs.forEach(q => out.push({ ...q, subject: k }));
+      })
+    );
     const seen = new Set<string>();
-    return items.filter(q => { if (seen.has(q.q)) return false; seen.add(q.q); return true; });
+    return out.filter(q => { if (seen.has(q.q)) return false; seen.add(q.q); return true; });
   };
 
-  const filteredCourses = COURSES.filter(c =>
-    c.years.includes(year) && c.branches.includes(branch)
-  );
+  const filteredCourses = COURSES.filter(c => c.years.includes(year) && c.branches.includes(branch));
+  const goalMet         = todaySolved >= dailyGoal;
 
-  const pct = Math.min(100, Math.round((todaySolved / dailyGoal) * 100));
-  const goalMet = todaySolved >= dailyGoal;
+  const indicatorX = tabAnim.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [TB_PAD, TB_PAD + TAB_W, TB_PAD + TAB_W * 2],
+  });
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.root}>
+    <View style={s.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#0D0D1A" />
 
-      {/* ── Goal Modal ── */}
+      {/* Goal Modal */}
       <Modal visible={showGoalModal} transparent animationType="slide">
-        <KeyboardAvoidingView
-          style={styles.modalBg}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Set your daily goal</Text>
-            <Text style={styles.modalSub}>
-              How many LeetCode problems do you want to solve each day?
-              Your streak only counts once you hit this goal.
+        <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={s.modalSheet}>
+            <View style={s.sheetHandle} />
+            <Text style={s.modalTitle}>Daily Goal</Text>
+            <Text style={s.modalBody}>
+              How many LeetCode problems per day?{'\n'}Your streak only increments when you hit this.
             </Text>
-            <View style={styles.goalRow}>
-              {GOAL_OPTIONS.map((n) => (
+            <View style={s.goalRow}>
+              {GOAL_OPTIONS.map(n => (
                 <TouchableOpacity
                   key={n}
-                  style={[styles.goalChip, goalInput === n && styles.goalChipSel]}
+                  style={[s.goalChip, goalInput === n && s.goalChipOn]}
                   onPress={() => setGoalInput(n)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={[styles.goalChipText, goalInput === n && styles.goalChipTextSel]}>
-                    {n}/day
-                  </Text>
+                  <Text style={[s.goalNum, goalInput === n && s.goalNumOn]}>{n}</Text>
+                  <Text style={[s.goalDay, goalInput === n && s.goalDayOn]}>/day</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={styles.goalBtn} onPress={saveGoal}>
-              <Text style={styles.goalBtnText}>Start Tracking ⚡</Text>
+            <TouchableOpacity style={s.startBtn} onPress={saveGoal} activeOpacity={0.88}>
+              <Text style={s.startBtnTxt}>⚡  Start Tracking</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>←</Text>
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={s.backTxt}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Upskill</Text>
+        <Text style={s.pageTitle}>Upskill</Text>
         <TouchableOpacity
-          style={styles.streakBadge}
-          onPress={() => { if (tab === 'leetcode') setShowGoalModal(true); }}
+          style={[s.streakPill, goalMet && s.streakPillGold]}
+          onPress={() => setShowGoalModal(true)}
+          activeOpacity={0.8}
         >
-          <Text style={styles.streakFire}>⚡</Text>
-          <Text style={styles.streakCount}>{streak}</Text>
+          <Text style={s.streakIcon}>⚡</Text>
+          <Text style={[s.streakNum, goalMet && s.streakNumGold]}>{streak}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Year filter ── */}
-      <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>YEAR</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {YEARS.map((y) => (
-            <TouchableOpacity
-              key={y}
-              style={[styles.chip, year === y && styles.chipOn]}
-              onPress={() => { setYear(y); setSelSubj('All'); }}
-            >
-              <Text style={[styles.chipText, year === y && styles.chipTextOn]}>Year {y}</Text>
-            </TouchableOpacity>
+      {/* Filters */}
+      <View style={s.filterBlock}>
+        <FilterRow label="YEAR">
+          {YEARS.map(y => (
+            <Chip key={y} label={`Year ${y}`} active={year === y}
+              onPress={() => { setYear(y); setSelSubj('All'); }} />
           ))}
-        </ScrollView>
-      </View>
-
-      {/* ── Branch filter ── */}
-      <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>BRANCH</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {BRANCHES.map((b) => (
-            <TouchableOpacity
-              key={b}
-              style={[styles.chip, branch === b && styles.chipOn]}
-              onPress={() => { setBranch(b); setSelSubj('All'); }}
-            >
-              <Text style={[styles.chipText, branch === b && styles.chipTextOn]}>{b}</Text>
-            </TouchableOpacity>
+        </FilterRow>
+        <FilterRow label="BRANCH">
+          {BRANCHES.map(b => (
+            <Chip key={b} label={b} active={branch === b}
+              onPress={() => { setBranch(b); setSelSubj('All'); }} />
           ))}
-        </ScrollView>
+        </FilterRow>
       </View>
 
-      <View style={styles.divider} />
-
-      {/* ── Tab bar ── */}
-      <View style={styles.tabBar}>
-        {([
-          { key: 'courses',  label: '📚  Courses' },
-          { key: 'leetcode', label: '💻  LeetCode' },
-          { key: 'qbank',    label: '❓  Q-Bank' },
-        ] as { key: Tab; label: string }[]).map(({ key, label }) => (
-          <TouchableOpacity
-            key={key}
-            style={[styles.tabBtn, tab === key && styles.tabBtnOn]}
-            onPress={() => { setTab(key); setSelSubj('All'); }}
-          >
-            <Text style={[styles.tabBtnText, tab === key && styles.tabBtnTextOn]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
+      {/* Tab Bar */}
+      <View style={s.tabBar}>
+        <Animated.View style={[s.tabIndicator, { transform: [{ translateX: indicatorX }], width: TAB_W }]} />
+        {TAB_ITEMS.map(item => {
+          const on = tab === item.key;
+          return (
+            <TouchableOpacity key={item.key} style={s.tabBtn} onPress={() => switchTab(item.key)} activeOpacity={0.75}>
+              <Text style={[s.tabIcon, on && s.tabIconOn]}>{item.icon}</Text>
+              <Text style={[s.tabLabel, on && s.tabLabelOn]}>{item.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* ── Subject filter — Q-Bank only ── */}
+      {/* Subject filter — Q-Bank only */}
       {tab === 'qbank' && (
-        <View style={styles.subjectWrap}>
-          <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>SUBJECT</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              {['All', ...availableSubjects].map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.chip, selSubj === s && styles.chipOn]}
-                  onPress={() => setSelSubj(s)}
-                >
-                  <Text style={[styles.chipText, selSubj === s && styles.chipTextOn]}
-                    numberOfLines={1}
-                  >
-                    {s.length > 12 ? s.slice(0, 11) + '…' : s}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-          <View style={styles.divider} />
+        <View style={s.subjBar}>
+          <FilterRow label="SUBJECT">
+            {['All', ...availableSubjects].map(sub => (
+              <Chip
+                key={sub}
+                label={sub.length > 13 ? sub.slice(0, 12) + '…' : sub}
+                active={selSubj === sub}
+                onPress={() => setSelSubj(sub)}
+              />
+            ))}
+          </FilterRow>
         </View>
       )}
 
-      {/* ── Content ── */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+      {/* Animated content area */}
+      <Animated.ScrollView
+        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scroll}
+      >
 
-        {/* COURSES */}
+        {/* ── COURSES ── */}
         {tab === 'courses' && (
           filteredCourses.length === 0
-            ? <Text style={styles.empty}>No courses for Year {year} · {branch}</Text>
-            : filteredCourses.map((c, i) => (
-              <View key={i} style={[styles.courseCard, { borderLeftColor: c.color }]}>
-                <View style={styles.courseTop}>
-                  <View style={[styles.tagPill, { backgroundColor: c.color + '22' }]}>
-                    <Text style={[styles.tagText, { color: c.color }]}>{c.tag}</Text>
-                  </View>
-                  <Text style={styles.provider}>{c.provider}</Text>
-                </View>
-                <Text style={styles.courseTitle}>{c.title}</Text>
-                <TouchableOpacity
-                  style={[styles.courseBtn, { backgroundColor: c.color + '22', borderColor: c.color + '55' }]}
-                  onPress={() => Linking.openURL(c.url)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.courseBtnText, { color: c.color }]}>View Course →</Text>
-                </TouchableOpacity>
-              </View>
-            ))
+            ? <Empty icon="🎓" text={`No courses for Year ${year} · ${branch}`} hint="Try a different year or branch" />
+            : <>
+                <Text style={s.metaLine}>
+                  {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''} · Year {year} · {branch}
+                </Text>
+                {filteredCourses.map((c, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[s.courseCard, { borderLeftColor: c.color }]}
+                    onPress={() => Linking.openURL(c.url)}
+                    activeOpacity={0.82}
+                  >
+                    <View style={[s.courseGlow, { backgroundColor: c.color + '0F' }]} />
+                    <View style={s.courseInner}>
+                      <View style={s.courseTopRow}>
+                        <View style={[s.badge, { backgroundColor: c.color + '28' }]}>
+                          <Text style={[s.badgeTxt, { color: c.color }]}>{c.tag}</Text>
+                        </View>
+                        <Text style={s.providerTxt} numberOfLines={1}>{c.provider}</Text>
+                        <Text style={[s.openArr, { color: c.color }]}>↗</Text>
+                      </View>
+                      <Text style={s.courseTitle}>{c.title}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
         )}
 
-        {/* LEETCODE */}
+        {/* ── LEETCODE ── */}
         {tab === 'leetcode' && (
           <>
             {/* Streak card */}
-            <View style={styles.streakCard}>
-              <View style={styles.streakTop}>
-                <View style={styles.streakLeft}>
-                  <Text style={styles.streakEmoji}>⚡</Text>
-                  <View>
-                    <Text style={styles.streakNum}>{streak} day streak</Text>
-                    <Text style={styles.streakGoalText}>Goal: {dailyGoal} problems/day</Text>
+            <View style={s.streakCard}>
+              <View style={s.streakCardBody}>
+                {/* Left — streak */}
+                <View style={s.streakLeft}>
+                  <Text style={s.streakBigNum}>{streak}</Text>
+                  <Text style={s.streakDayLbl}>day streak</Text>
+                  <View style={s.streakPillSmall}>
+                    <Text style={s.streakGoalInfo}>Goal · {dailyGoal}/day</Text>
                   </View>
                 </View>
-                <Text style={styles.streakSolved}>{solved.size}</Text>
+
+                <View style={s.vDivider} />
+
+                {/* Right — today's progress */}
+                <View style={s.streakRight}>
+                  <Text style={s.solvedBig}>{solved.size}</Text>
+                  <Text style={s.solvedLbl}>total solved</Text>
+                  <View style={s.dotRow}>
+                    {Array.from({ length: dailyGoal }).map((_, di) => (
+                      <View
+                        key={di}
+                        style={[
+                          s.dot,
+                          di < todaySolved && (goalMet ? s.dotGold : s.dotViolet),
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <Text style={[s.todayTxt, goalMet && s.todayTxtGold]}>
+                    {todaySolved}/{dailyGoal} today{goalMet ? ' ✓' : ''}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, {
-                  width: `${pct}%` as any,
-                  backgroundColor: goalMet ? '#10B981' : '#7C3AED',
-                }]} />
-              </View>
-              <View style={styles.streakBottom}>
-                <Text style={styles.streakProgress}>
-                  {todaySolved}/{dailyGoal} today{goalMet ? '  ·  Streak updated! ✓' : ''}
-                </Text>
-                <TouchableOpacity onPress={() => setShowGoalModal(true)}>
-                  <Text style={styles.changeGoal}>Change goal</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity style={s.editGoalRow} onPress={() => setShowGoalModal(true)}>
+                <Text style={s.editGoalTxt}>Edit daily goal →</Text>
+              </TouchableOpacity>
             </View>
 
-            {LEET_PROBLEMS.map((p) => (
-              <View key={p.id} style={[styles.leetCard, solved.has(p.id) && styles.leetCardDone]}>
-                <View style={styles.leetLeft}>
-                  <TouchableOpacity
-                    style={[styles.checkbox, solved.has(p.id) && styles.checkboxDone]}
-                    onPress={() => markSolved(p.id)}
-                  >
-                    {solved.has(p.id) && <Text style={styles.checkmark}>✓</Text>}
-                  </TouchableOpacity>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[styles.leetTitle, solved.has(p.id) && styles.leetTitleDone]}
-                      numberOfLines={2}
+            {/* Problems */}
+            {LEET_PROBLEMS.map((p, i) => {
+              const done = solved.has(p.id);
+              const dc   = diffColor(p.difficulty);
+              return (
+                <View key={p.id} style={[s.leetCard, done && s.leetCardDone]}>
+                  <Animated.View style={{ transform: [{ scale: leetAnims[i] }] }}>
+                    <TouchableOpacity
+                      style={[s.chk, done && s.chkDone]}
+                      onPress={() => markSolved(p.id, i)}
+                      activeOpacity={0.75}
                     >
+                      {done && <Text style={s.chkMark}>✓</Text>}
+                    </TouchableOpacity>
+                  </Animated.View>
+
+                  <View style={s.leetMid}>
+                    <Text style={[s.leetTitle, done && s.leetTitleDone]} numberOfLines={2}>
                       {p.title}
                     </Text>
-                    <View style={styles.leetMeta}>
-                      <Text style={[styles.leetDiff, { color: diffColor(p.difficulty) }]}>{p.difficulty}</Text>
-                      <Text style={styles.leetTag}>{p.tag}</Text>
+                    <View style={s.leetTagRow}>
+                      <View style={[s.diffPill, { backgroundColor: dc + '22' }]}>
+                        <Text style={[s.diffTxt, { color: dc }]}>{p.difficulty}</Text>
+                      </View>
+                      <Text style={s.topicTxt}>{p.tag}</Text>
                     </View>
                   </View>
+
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(p.url)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={s.leetArr}>→</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL(p.url)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.leetArrow}>→</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
+              );
+            })}
           </>
         )}
 
-        {/* Q-BANK */}
+        {/* ── Q-BANK ── */}
         {tab === 'qbank' && (() => {
           const items = getQBankItems();
-          return items.length === 0
-            ? <Text style={styles.empty}>No questions for this selection</Text>
-            : items.map((q, i) => (
-              <View key={i} style={styles.qCard}>
-                <View style={styles.qTop}>
-                  <View style={[styles.tagPill, {
-                    backgroundColor: q.type === 'PYQ' ? 'rgba(124,58,237,0.15)' : 'rgba(16,185,129,0.15)',
-                  }]}>
-                    <Text style={[styles.tagText, { color: q.type === 'PYQ' ? '#7C3AED' : '#10B981' }]}>
-                      {q.type}
+          if (items.length === 0)
+            return <Empty icon="📖" text="No questions for this selection" hint="Try selecting a different subject" />;
+
+          return (
+            <>
+              <Text style={s.metaLine}>{items.length} question{items.length !== 1 ? 's' : ''}</Text>
+              {items.map((q, i) => {
+                const expanded = expandedQ.has(i);
+                const isPYQ    = q.type === 'PYQ';
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[s.qCard, expanded && s.qCardExpanded]}
+                    onPress={() => toggleQ(i)}
+                    activeOpacity={0.88}
+                  >
+                    <View style={s.qCardTop}>
+                      <View style={[s.qBadge, isPYQ ? s.qBadgePYQ : s.qBadgeFAQ]}>
+                        <Text style={[s.qBadgeTxt, isPYQ ? s.qBadgeTxtPYQ : s.qBadgeTxtFAQ]}>
+                          {q.type}
+                        </Text>
+                      </View>
+                      <Text style={s.qSubj} numberOfLines={1}>{q.subject}</Text>
+                      <Text style={s.qChevron}>{expanded ? '▲' : '▼'}</Text>
+                    </View>
+                    <Text style={[s.qTxt, expanded && s.qTxtExpanded]} numberOfLines={expanded ? undefined : 2}>
+                      {q.q}
                     </Text>
-                  </View>
-                  <Text style={styles.qSubject}>{q.subject}</Text>
-                </View>
-                <Text style={styles.qText}>{q.q}</Text>
-              </View>
-            ));
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          );
         })()}
 
+      </Animated.ScrollView>
+    </View>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={s.filterRow}>
+      <Text style={s.filterLabel}>{label}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipRow}>
+        {children}
       </ScrollView>
+    </View>
+  );
+}
+
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={[s.chip, active && s.chipOn]} onPress={onPress} activeOpacity={0.8}>
+      <Text style={[s.chipTxt, active && s.chipTxtOn]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function Empty({ icon, text, hint }: { icon: string; text: string; hint: string }) {
+  return (
+    <View style={s.emptyBox}>
+      <Text style={s.emptyIcon}>{icon}</Text>
+      <Text style={s.emptyTxt}>{text}</Text>
+      <Text style={s.emptyHint}>{hint}</Text>
     </View>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0D0D1A' },
 
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 14,
+  // ── Modal ──────────────────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end',
   },
-  back: { fontSize: 22, color: '#F8FAFC', width: 32 },
-  headerTitle: { fontFamily: 'Georgia', fontSize: 20, color: '#FFFFFF', flex: 1, textAlign: 'center' },
-  streakBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(124,58,237,0.2)', borderRadius: 999,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(124,58,237,0.4)',
-  },
-  streakFire: { fontSize: 13 },
-  streakCount: { color: '#A78BFA', fontSize: 13, fontWeight: '700' },
-
-  filterRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 8 },
-  filterLabel: { fontSize: 10, color: '#475569', letterSpacing: 1, minWidth: 52 },
-  chips: { gap: 6, paddingRight: 4 },
-  chip: {
-    paddingHorizontal: 13, paddingVertical: 5, borderRadius: 999,
-    backgroundColor: '#1A1A2E', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-  },
-  chipOn: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  chipText: { fontSize: 11, color: '#64748B', fontWeight: '500' },
-  chipTextOn: { color: '#FFFFFF', fontWeight: '600' },
-
-  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 20, marginBottom: 10 },
-
-  tabBar: {
-    flexDirection: 'row', marginHorizontal: 20, marginBottom: 10,
-    backgroundColor: '#1A1A2E', borderRadius: 12, padding: 3,
-  },
-  tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
-  tabBtnOn: { backgroundColor: '#7C3AED' },
-  tabBtnText: { fontSize: 11, color: '#64748B', fontWeight: '500' },
-  tabBtnTextOn: { color: '#FFFFFF', fontWeight: '600' },
-
-  subjectWrap: { marginBottom: 2 },
-
-  list: { paddingHorizontal: 20, paddingBottom: 100, gap: 10 },
-  empty: { color: '#475569', fontSize: 13, textAlign: 'center', marginTop: 40 },
-
-  // Course
-  courseCard: {
-    backgroundColor: '#1A1A2E', borderRadius: 14, padding: 14,
-    borderLeftWidth: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
-  },
-  courseTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  tagPill: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5 },
-  tagText: { fontSize: 9, fontWeight: '700' },
-  provider: { fontSize: 11, color: '#64748B', flex: 1 },
-  courseTitle: { fontSize: 14, color: '#FFFFFF', fontWeight: '600', marginBottom: 12 },
-  courseBtn: {
-    paddingVertical: 7, paddingHorizontal: 12, borderRadius: 8,
-    borderWidth: 1, alignSelf: 'flex-start',
-  },
-  courseBtnText: { fontSize: 12, fontWeight: '600' },
-
-  // Streak
-  streakCard: {
-    backgroundColor: '#1A1A2E', borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)',
-  },
-  streakTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  streakLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  streakEmoji: { fontSize: 22 },
-  streakNum: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  streakGoalText: { color: '#64748B', fontSize: 10, marginTop: 2 },
-  streakSolved: { color: '#A78BFA', fontSize: 22, fontWeight: '700', fontFamily: 'Georgia' },
-  progressTrack: { height: 5, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: 5, borderRadius: 3 },
-  streakBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  streakProgress: { fontSize: 10, color: '#64748B' },
-  changeGoal: { fontSize: 10, color: '#7C3AED', fontWeight: '600' },
-
-  // LeetCode
-  leetCard: {
-    backgroundColor: '#1A1A2E', borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  leetCardDone: { opacity: 0.55 },
-  leetLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, flex: 1 },
-  checkbox: {
-    width: 20, height: 20, borderRadius: 5, borderWidth: 2,
-    borderColor: '#334155', alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0, marginTop: 1,
-  },
-  checkboxDone: { backgroundColor: '#10B981', borderColor: '#10B981' },
-  checkmark: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  leetTitle: { fontSize: 13, color: '#FFFFFF', marginBottom: 5 },
-  leetTitleDone: { textDecorationLine: 'line-through', color: '#64748B' },
-  leetMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  leetDiff: { fontSize: 10, fontWeight: '700' },
-  leetTag: {
-    fontSize: 10, color: '#475569',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
-  },
-  leetArrow: { fontSize: 16, color: '#7C3AED', fontWeight: '700', paddingLeft: 8 },
-
-  // Q-Bank
-  qCard: {
-    backgroundColor: '#1A1A2E', borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
-  },
-  qTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  qSubject: { fontSize: 11, color: '#64748B' },
-  qText: { fontSize: 13, color: '#FFFFFF', lineHeight: 21 },
-
-  // Goal modal
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: '#1A1A2E', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40,
+    backgroundColor: '#1A1A2E',
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 44,
+    borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
   },
-  modalTitle: { fontFamily: 'Georgia', fontSize: 20, color: '#FFFFFF', marginBottom: 8 },
-  modalSub: { fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 20 },
-  goalRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  sheetHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignSelf: 'center', marginBottom: 20,
+  },
+  modalTitle: {
+    fontFamily: 'Georgia', fontSize: 22, color: '#FFFFFF', marginBottom: 8,
+  },
+  modalBody: {
+    fontSize: 13, color: '#94A3B8', lineHeight: 20, marginBottom: 24,
+  },
+  goalRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   goalChip: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: '#0D0D1A', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    flex: 1, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: '#0D0D1A',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
   },
-  goalChipSel: { borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.1)' },
-  goalChipText: { color: '#64748B', fontSize: 13 },
-  goalChipTextSel: { color: '#A78BFA', fontWeight: '600' },
-  goalBtn: {
-    backgroundColor: '#7C3AED', borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center',
+  goalChipOn: { borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.12)' },
+  goalNum:    { fontSize: 20, fontWeight: '700', color: '#475569' },
+  goalNumOn:  { color: '#A78BFA' },
+  goalDay:    { fontSize: 11, color: '#475569', marginTop: 2 },
+  goalDayOn:  { color: '#7C3AED' },
+  startBtn: {
+    backgroundColor: '#7C3AED', borderRadius: 14,
+    paddingVertical: 15, alignItems: 'center',
   },
-  goalBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  startBtnTxt: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
+
+  // ── Header ─────────────────────────────────────────────────────────────────
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 54, paddingHorizontal: OUTER, paddingBottom: 14,
+  },
+  backBtn:  { width: 34, alignItems: 'flex-start' },
+  backTxt:  { fontSize: 30, color: '#F8FAFC', lineHeight: 34 },
+  pageTitle:{ fontFamily: 'Georgia', fontSize: 21, color: '#FFFFFF', flex: 1, textAlign: 'center' },
+  streakPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(124,58,237,0.18)',
+    borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6,
+    borderWidth: 1, borderColor: 'rgba(124,58,237,0.35)',
+    minWidth: 52, justifyContent: 'center',
+  },
+  streakPillGold: {
+    backgroundColor: 'rgba(245,158,11,0.18)',
+    borderColor: 'rgba(245,158,11,0.4)',
+  },
+  streakIcon:    { fontSize: 13 },
+  streakNum:     { color: '#A78BFA', fontSize: 14, fontWeight: '700' },
+  streakNumGold: { color: '#F59E0B' },
+
+  // ── Filters ────────────────────────────────────────────────────────────────
+  filterBlock: { paddingBottom: 2 },
+  filterRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: OUTER, marginBottom: 8,
+  },
+  filterLabel: {
+    fontSize: 10, color: '#475569', letterSpacing: 1.2,
+    minWidth: 54, fontWeight: '600',
+  },
+  chipRow: { gap: 6, paddingRight: 4 },
+  chip: {
+    paddingHorizontal: 13, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: '#1A1A2E',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
+  },
+  chipOn:     { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  chipTxt:    { fontSize: 11, color: '#64748B', fontWeight: '500' },
+  chipTxtOn:  { color: '#FFFFFF', fontWeight: '700' },
+
+  // ── Tab Bar ────────────────────────────────────────────────────────────────
+  tabBar: {
+    flexDirection: 'row',
+    marginHorizontal: OUTER, marginBottom: 12,
+    backgroundColor: '#1A1A2E',
+    borderRadius: 16, padding: TB_PAD,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    position: 'relative', overflow: 'hidden',
+  },
+  tabIndicator: {
+    position: 'absolute', top: TB_PAD,
+    height: 46, backgroundColor: '#7C3AED',
+    borderRadius: 13,
+  },
+  tabBtn: {
+    flex: 1, height: 46,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+  },
+  tabIcon:     { fontSize: 14 },
+  tabIconOn:   {},
+  tabLabel:    { fontSize: 11, color: '#64748B', fontWeight: '500' },
+  tabLabelOn:  { color: '#FFFFFF', fontWeight: '700' },
+
+  // ── Subject bar ────────────────────────────────────────────────────────────
+  subjBar: {
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)',
+    paddingTop: 8, marginBottom: 4,
+  },
+
+  // ── Scroll content ─────────────────────────────────────────────────────────
+  scroll: { paddingHorizontal: OUTER, paddingBottom: 110, gap: 10, paddingTop: 2 },
+  metaLine: { fontSize: 11, color: '#475569', marginBottom: 2, letterSpacing: 0.2 },
+
+  // ── Empty state ────────────────────────────────────────────────────────────
+  emptyBox:  { alignItems: 'center', paddingTop: 64, gap: 8 },
+  emptyIcon: { fontSize: 40 },
+  emptyTxt:  { fontSize: 15, color: '#64748B', fontWeight: '600' },
+  emptyHint: { fontSize: 12, color: '#334155' },
+
+  // ── Course cards ───────────────────────────────────────────────────────────
+  courseCard: {
+    backgroundColor: '#1A1A2E',
+    borderRadius: 16, overflow: 'hidden',
+    borderLeftWidth: 3,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+  },
+  courseGlow: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+  },
+  courseInner:  { padding: 14 },
+  courseTopRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 9,
+  },
+  badge:    { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  badgeTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  providerTxt: { fontSize: 11, color: '#64748B', flex: 1 },
+  openArr:  { fontSize: 16, fontWeight: '700' },
+  courseTitle: { fontSize: 14, color: '#F1F5F9', fontWeight: '600', lineHeight: 20 },
+
+  // ── Streak card ────────────────────────────────────────────────────────────
+  streakCard: {
+    backgroundColor: '#1A1A2E',
+    borderRadius: 18,
+    borderWidth: 1, borderColor: 'rgba(124,58,237,0.25)',
+    overflow: 'hidden',
+  },
+  streakCardBody: {
+    flexDirection: 'row', padding: 18, gap: 0,
+  },
+  streakLeft: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  streakBigNum: {
+    fontFamily: 'Georgia', fontSize: 48, color: '#A78BFA',
+    lineHeight: 52,
+  },
+  streakDayLbl: { fontSize: 11, color: '#64748B', fontWeight: '600', letterSpacing: 0.5 },
+  streakPillSmall: {
+    backgroundColor: 'rgba(124,58,237,0.15)',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginTop: 2,
+  },
+  streakGoalInfo: { fontSize: 10, color: '#7C3AED', fontWeight: '600' },
+
+  vDivider: {
+    width: 1, backgroundColor: 'rgba(255,255,255,0.06)',
+    marginVertical: 8,
+  },
+
+  streakRight: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  solvedBig:   { fontFamily: 'Georgia', fontSize: 48, color: '#FFFFFF', lineHeight: 52 },
+  solvedLbl:   { fontSize: 11, color: '#64748B', fontWeight: '600', letterSpacing: 0.5 },
+
+  dotRow:    { flexDirection: 'row', gap: 5, marginTop: 4 },
+  dot: {
+    width: 9, height: 9, borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  dotViolet: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  dotGold:   { backgroundColor: '#F59E0B', borderColor: '#F59E0B' },
+
+  todayTxt:     { fontSize: 10, color: '#64748B', marginTop: 2 },
+  todayTxtGold: { color: '#F59E0B', fontWeight: '600' },
+
+  editGoalRow: {
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 10, alignItems: 'center',
+  },
+  editGoalTxt: { fontSize: 11, color: '#7C3AED', fontWeight: '600' },
+
+  // ── LeetCode cards ─────────────────────────────────────────────────────────
+  leetCard: {
+    backgroundColor: '#1A1A2E', borderRadius: 14, padding: 13,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+  },
+  leetCardDone: { opacity: 0.45 },
+  chk: {
+    width: 22, height: 22, borderRadius: 7,
+    borderWidth: 2, borderColor: '#334155',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  chkDone:  { backgroundColor: '#10B981', borderColor: '#10B981' },
+  chkMark:  { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  leetMid:  { flex: 1 },
+  leetTitle:{ fontSize: 13, color: '#F1F5F9', lineHeight: 18, marginBottom: 6 },
+  leetTitleDone: { textDecorationLine: 'line-through', color: '#475569' },
+  leetTagRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  diffPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  diffTxt:  { fontSize: 10, fontWeight: '700' },
+  topicTxt: {
+    fontSize: 10, color: '#475569',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+  },
+  leetArr: { fontSize: 18, color: '#7C3AED', fontWeight: '700' },
+
+  // ── Q-Bank cards ───────────────────────────────────────────────────────────
+  qCard: {
+    backgroundColor: '#1A1A2E', borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+  },
+  qCardExpanded: { borderColor: 'rgba(124,58,237,0.2)' },
+  qCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 9 },
+  qBadge:   { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  qBadgePYQ: { backgroundColor: 'rgba(124,58,237,0.18)' },
+  qBadgeFAQ: { backgroundColor: 'rgba(16,185,129,0.18)' },
+  qBadgeTxt:    { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  qBadgeTxtPYQ: { color: '#A78BFA' },
+  qBadgeTxtFAQ: { color: '#10B981' },
+  qSubj:    { fontSize: 11, color: '#64748B', flex: 1 },
+  qChevron: { fontSize: 9, color: '#475569' },
+  qTxt:     { fontSize: 13, color: '#94A3B8', lineHeight: 20 },
+  qTxtExpanded: { color: '#E2E8F0' },
 });
