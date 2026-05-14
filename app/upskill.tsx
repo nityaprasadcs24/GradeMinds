@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: W } = Dimensions.get('window');
-const SIDEBAR_W = 76;
+const SIDEBAR_W = 108;
 
 type Tab = 'courses' | 'leetcode' | 'qbank';
 
@@ -277,7 +277,7 @@ export default function Upskill() {
                 onPress={() => { setSelSem(s); setSelSubj('All'); }}
               >
                 <View style={[styles.semDot, { backgroundColor: SEMS[s].color }]} />
-                <Text style={[styles.semLabel, selSem === s && styles.semLabelActive]}>{s}</Text>
+                <Text style={[styles.semLabel, selSem === s && styles.semLabelActive]}>Sem {s}</Text>
               </TouchableOpacity>
             ))}
 
