@@ -8,7 +8,8 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: W } = Dimensions.get('window');
-const SIDEBAR_W = 108;
+const SIDEBAR_W_NARROW = 82;
+const SIDEBAR_W_WIDE = 108;
 
 type Tab = 'courses' | 'leetcode' | 'qbank';
 
@@ -268,7 +269,7 @@ export default function Upskill() {
 
         {/* Sidebar — only shown when open and not leetcode */}
         {sidebarOpen && tab !== 'leetcode' && (
-          <ScrollView style={styles.sidebar} showsVerticalScrollIndicator={false}>
+          <ScrollView style={[styles.sidebar, { width: tab === 'qbank' ? SIDEBAR_W_WIDE : SIDEBAR_W_NARROW }]} showsVerticalScrollIndicator={false}>
             <Text style={styles.sideHeading}>SEM</Text>
             {[1,2,3,4,5,6,7,8].map(s => (
               <TouchableOpacity
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
 
   // Sidebar — narrow
   sidebar: {
-    width: SIDEBAR_W,
+    width: SIDEBAR_W_NARROW,
     backgroundColor: '#111127',
     borderRightWidth: 1,
     borderRightColor: 'rgba(255,255,255,0.06)',
