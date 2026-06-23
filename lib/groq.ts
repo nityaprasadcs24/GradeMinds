@@ -1,42 +1,34 @@
-const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
-
-console.log('[groq] API key prefix:', GROQ_API_KEY.slice(0, 10) || '(empty)');
-
-const SYSTEM_PROMPT =
-  'You are Q-Gen, an intelligent study assistant for college students. ' +
-  'Help with concepts, exam prep, solving problems, and explaining topics clearly. ' +
-  'Keep answers concise and student-friendly.';
-
-export type GroqMessage = {
-  role: 'user' | 'assistant';
-  content: string;
-};
-
-export async function sendGroqMessage(messages: GroqMessage[]): Promise<string> {
+export async function sendMessage(messages: { role: string; content: string }[]) {
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
+    const apiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
+    console.log("Groq key loaded:", apiKey ? apiKey.slice(0, 8) + "..." : "MISSING");
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192',
-        messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+        model: "llama-3.1-8b-instant",
+        messages: [
+          { role: "system", content: "You are Q-Gen, an intelligent study assistant for college students. Help with concepts, exam prep, solving problems, and explaining topics clearly. Keep answers concise and student-friendly." },
+          ...messages,
+        ],
         max_tokens: 1024,
       }),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      console.error('[groq] API error response:', JSON.stringify(data));
-      throw new Error(data?.error?.message ?? `HTTP ${response.status}`);
+      const errorText = await response.text();
+      console.error("Groq API error:", response.status, errorText);
+      throw new Error(`Groq API error: ${response.status}`);
     }
 
-    return data.choices[0].message.content as string;
+    const data = await response.json();
+    return data.choices[0].message.content;
   } catch (err) {
-    console.error('[groq] sendGroqMessage failed:', err);
+    console.error("sendMessage failed:", err);
     throw err;
   }
 }

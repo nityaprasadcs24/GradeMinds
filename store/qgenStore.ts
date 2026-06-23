@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { sendGroqMessage, GroqMessage } from '../lib/groq';
+import { sendMessage } from '../lib/groq';
+
+type GroqMessage = { role: 'user' | 'assistant'; content: string };
 
 export type ChatMessage = {
   id: string;
@@ -41,7 +43,7 @@ export const useQGenStore = create<QGenStore>((set, get) => ({
         content: m.content,
       }));
 
-      const response = await sendGroqMessage(history);
+      const response = await sendMessage(history);
 
       const botMsg: ChatMessage = {
         id: `${Date.now()}-bot`,
@@ -54,7 +56,8 @@ export const useQGenStore = create<QGenStore>((set, get) => ({
         messages: [...state.messages, botMsg],
         isLoading: false,
       }));
-    } catch {
+    } catch (err) {
+      console.error("Store error:", err);
       set({ isLoading: false, error: 'Q-Gen is unavailable, try again.' });
     }
   },
