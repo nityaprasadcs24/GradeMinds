@@ -1,8 +1,11 @@
+import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { QGenFAB } from '../../components/QGenFAB';
 
 export default function TabLayout() {
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -48,5 +51,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    <QGenFAB />
+    </View>
   );
 }
