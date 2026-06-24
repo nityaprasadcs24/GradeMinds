@@ -1,17 +1,30 @@
 {
-    "expo": {
-        "name": "GradeMinds",
-        "slug": "grademind",
-        "version": "1.0.0",
-        "orientation": "portrait",
-        "scheme": "grademind",
-        "platforms": [
-            "ios",
-            "android",
-            "web"
-        ],
-        "web": {
-            "bundler": "metro"
-        }
-    }
+  "expo": {
+    "name": "GradeMinds",
+    "slug": "grademind",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "grademind",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f8de4951-4852-4b14-80d7-5189d6171daf"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f8de4951-4852-4b14-80d7-5189d6171daf"
+    },
+    "android": {},
+    "ios": {}
+  }
 }
